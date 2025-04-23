@@ -10,7 +10,7 @@ import {
 interface Props {
   navigation: {
     navigate: (screen: string) => void;
-  };
+  }; 
 }
 
 const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
@@ -32,7 +32,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
       >
         <Text style={styles.signInText}>Sign in</Text>
       </TouchableOpacity>
-
+ 
       <TouchableOpacity
         style={styles.signUpBtn}
         onPress={() => navigation.navigate('SignUp')}

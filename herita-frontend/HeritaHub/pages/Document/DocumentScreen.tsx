@@ -1,4 +1,4 @@
-import React, { useState, ReactNode } from "react";
+import React, { useState, useEffect, ReactNode } from "react";
 import {
   View,
   StyleSheet,
@@ -11,6 +11,7 @@ import {
   ImageSourcePropType,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
+import api from "../../api";
 
 interface CollapsibleSectionProps {
   title: string;
@@ -19,6 +20,7 @@ interface CollapsibleSectionProps {
   iconUp?: keyof typeof Feather.glyphMap;
   iconDown?: keyof typeof Feather.glyphMap;
 }
+
 const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   title,
   children,
@@ -47,6 +49,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     </View>
   );
 };
+
 interface InfoRowProps {
   label?: string;
   value?: string;
@@ -74,7 +77,89 @@ const InfoRow: React.FC<InfoRowProps> = ({
   );
 };
 
-const DocumentScreen: React.FC = () => {
+interface CultureContent {
+  id: string;
+  created_at: string;
+  title: string;
+  description: string;
+  category: string;
+  Content: {
+    id: string;
+    title: string;
+    content: string;
+    updated_at: string;
+    culture_id: string;
+    Media: {
+      id: string;
+      image_url: string;
+      type: string;
+      postId: string | null;
+      contentSectionId: string;
+    }[];
+  }[];
+}
+
+const DocumentScreen: React.FC<{ route: { params: { id: string } } }> = ({
+  route,
+}) => {
+  const { id } = route.params; // Assume ID is passed via navigation params
+  const [cultureContent, setCultureContent] = useState<CultureContent | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCultureContent = async () => {
+      try {
+        const response = await api.get(`/api/v1/culture-content/${id}`);
+        if (response.data.status === "success") {
+          setCultureContent(response.data.result);
+        } else {
+          setError("Failed to fetch culture content");
+        }
+      } catch (err) {
+        setError("An error occurred while fetching data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCultureContent();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !cultureContent) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Text style={styles.errorText}>{error || "No data available"}</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // Helper function to parse content string into key-value pairs
+  const parseContent = (
+    content: string
+  ): { label: string; value: string }[] => {
+    return content
+      .split("\n")
+      .filter((line) => line.includes(":"))
+      .map((line) => {
+        const [label, ...valueParts] = line.split(":");
+        return {
+          label: label.trim(),
+          value: valueParts.join(":").trim(),
+        };
+      });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
@@ -88,70 +173,55 @@ const DocumentScreen: React.FC = () => {
 
       <ScrollView style={styles.container}>
         <View style={styles.titleSection}>
-          <Text style={styles.mainTitle}>Dinh độc lập</Text>
-          <Text style={styles.subtitle}>
-            di tích lịch sử tại Việt Nam, từng là nơi ở của Tổng thống Việt Nam
-            Cộng hòa
-          </Text>
+          <Text style={styles.mainTitle}>{cultureContent.title}</Text>
+          <Text style={styles.subtitle}>{cultureContent.description}</Text>
         </View>
 
-        <CollapsibleSection title="Thông tin chung">
-          <Text style={styles.generalInfoText}>
-            Dinh Độc Lập là một tòa nhà của nhà nước tại Thành phố Hồ Chí Minh,
-            từng là nơi ở và làm việc của Tổng thống Việt Nam Cộng hòa trước Sự
-            kiện 30 tháng 4 năm 1975. Hiện nay, Dinh Độc Lập đã được Chính phủ
-            Việt Nam xếp hạng là di tích quốc gia đặc biệt. Cơ quan quản lý di
-            tích văn hoá Dinh Độc Lập có tên là Hội trường Thống Nhất thuộc Văn
-            phòng Chính phủ.
-          </Text>
-          <View style={styles.sectionContainer}>
+        {cultureContent.Content.map((section, index) => (
+          <CollapsibleSection
+            key={section.id}
+            title={section.title}
+            initialCollapsed={section.title !== "Thông tin chung"} // Expand "Thông tin chung" by default
+          >
             <View style={styles.detailedInfoContainer}>
-              <Text style={styles.detailedInfoTitle}>Dinh độc lập</Text>
-              <InfoRow
-                image={require("../../assets/Dinh_Độc_Lập_vào_nàm_2024.jpg")}
-              />
-              <InfoRow image={require("../../assets/map.png")} />
+              {section.content &&
+              !["Một số hình ảnh", "Hình ảnh di tích"].includes(
+                section.title
+              ) ? (
+                <>
+                  {section.title === "Thông tin chung" ? (
+                    <Text style={styles.generalInfoText}>
+                      {section.content}
+                    </Text>
+                  ) : (
+                    parseContent(section.content).map((item, idx) => (
+                      <InfoRow
+                        key={idx}
+                        label={item.label}
+                        value={item.value}
+                        isLast={
+                          idx === parseContent(section.content).length - 1
+                        }
+                      />
+                    ))
+                  )}
+                </>
+              ) : null}
+
+              {section.Media.length > 0 && (
+                <View>
+                  {section.Media.map((media, idx) => (
+                    <InfoRow
+                      key={media.id}
+                      image={{ uri: media.image_url }}
+                      isLast={idx === section.Media.length - 1}
+                    />
+                  ))}
+                </View>
+              )}
             </View>
-          </View>
-
-          <View style={styles.detailedInfoContainer}>
-            <Text style={styles.detailedInfoTitle}>Thông tin chi tiết</Text>
-            <InfoRow label="Tên gọi" value="Dinh độc lập" />
-            <InfoRow label="Tên khác" value="Phủ Đầu Rồng" />
-            <InfoRow
-              label="Địa điểm"
-              value="135 Nam Kỳ khởi nghĩa, phường Bến Thành, Quận 1, Thành phố Hồ Chí Minh, Việt Nam"
-              isLast
-            />
-          </View>
-
-          <View style={styles.detailedInfoContainer}>
-            <Text style={styles.detailedInfoTitle}>Xây dựng</Text>
-            <InfoRow label="Khởi công" value="1 tháng 7 năm 1962" />
-            <InfoRow label="Hoàn thành" value="31 tháng 10 năm 1966" />
-            <InfoRow label="Trùng tu" value="14 tháng 3 năm 1970" />
-            <InfoRow label="Diện tích sàn" value="120.000 m²" />
-            <InfoRow label="Chiều cao" value="26 m" isLast />
-          </View>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Lịch sử" initialCollapsed>
-          <Text>Thông tin lịch sử sẽ được thêm vào đây.</Text>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Một số hình ảnh">
-          <View style={styles.detailedInfoContainer}>
-            <InfoRow
-              image={require("../../assets/Dinh_Độc_Lập_vào_nàm_2024.jpg")}
-            />
-            <InfoRow
-              image={require("../../assets/Dinh_Độc_Lập_vào_nàm_2024.jpg")}
-            />
-            <InfoRow
-              image={require("../../assets/Dinh_Độc_Lập_vào_nàm_2024.jpg")}
-            />
-          </View>
-        </CollapsibleSection>
+          </CollapsibleSection>
+        ))}
         <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>
@@ -171,10 +241,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
-    backgroundColor: "#fff", // Match background
+    backgroundColor: "#fff",
   },
   backButton: {
-    padding: 5, // Increase tappable area
+    padding: 5,
   },
   headerTitle: {
     fontSize: 18,
@@ -182,7 +252,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   headerPlaceholder: {
-    width: 24 + 10,
+    width: 34,
   },
   container: {
     flex: 1,
@@ -223,7 +293,7 @@ const styles = StyleSheet.create({
   collapsibleContent: {
     paddingHorizontal: 15,
     paddingVertical: 10,
-    borderBottomWidth: 1, // Add border below content if needed
+    borderBottomWidth: 1,
     borderColor: "#eee",
   },
   generalInfoText: {
@@ -231,53 +301,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: "#333",
   },
-  imageSectionTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    paddingHorizontal: 15,
-    marginBottom: 10,
-    marginTop: 15,
-  },
-  mainImage: {
-    width: "100%",
-    height: 200, // Adjust height as needed
-    marginBottom: 10, // Spacing below image before map
-  },
-  mapImage: {
-    width: "100%",
-    height: 150, // Adjust height as needed
-  },
-  mapLabel: {
-    textAlign: "center",
-    fontSize: 13,
-    color: "#666",
-    paddingVertical: 8,
-    borderBottomWidth: 1, // As per screenshot
-    borderColor: "#eee",
-    marginBottom: 10, // Spacing before next section
-  },
   detailedInfoContainer: {
-    borderRightWidth: 1,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderBottomWidth: 1,
+    borderWidth: 1,
     borderColor: "#eee",
     marginTop: 10,
     backgroundColor: "#fff",
     alignItems: "center",
     width: "95%",
-    margin: "auto",
-  },
-  detailedInfoTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    backgroundColor: "#ffffff",
-    borderBottomWidth: 1,
-    borderColor: "#eee",
-    width: "100%",
-    textAlign: "center",
+    marginHorizontal: "auto",
   },
   infoRow: {
     flexDirection: "row",
@@ -298,18 +329,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#555",
     fontWeight: "500",
-    flex: 1, // Allow label to take up space but wrap
+    flex: 1,
   },
   infoValue: {
     fontSize: 14,
     color: "#333",
     textAlign: "right",
-    flex: 1.5, // Allow value more space and align right
+    flex: 1.5,
   },
-  galleryImage: {
-    width: "100%",
-    height: 200, // Adjust as needed
-    marginBottom: 10, // Space between gallery images
+  loadingText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "red",
+    textAlign: "center",
+    marginTop: 20,
   },
 });
+
 export default DocumentScreen;
