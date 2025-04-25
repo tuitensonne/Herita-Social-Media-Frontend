@@ -12,12 +12,11 @@ import api from '../api';
 import * as SecureStore from 'expo-secure-store';
 import LoadingOverlay from "../components/LoadingOverlay";
 import { setToken } from '../services/TokenService';
+import { RootStackParamList } from '../App';
+import { StackScreenProps } from '@react-navigation/stack';
 
-interface Props {
-  navigation: {
-    navigate: (screen: string) => void;
-  };
-}
+
+type Props = StackScreenProps<RootStackParamList, "SignIn">;
 
 const SignInScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');

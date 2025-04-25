@@ -6,12 +6,11 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
- 
-interface Props {
-  navigation: {
-    navigate: (screen: string) => void;
-  }; 
-}
+import { RootStackParamList } from '../App';
+import { StackScreenProps } from '@react-navigation/stack';
+
+
+type Props = StackScreenProps<RootStackParamList, "Welcome">;
 
 const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
   return (

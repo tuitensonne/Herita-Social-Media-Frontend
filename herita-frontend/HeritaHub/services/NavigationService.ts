@@ -1,10 +1,10 @@
 import { NavigationContainerRef } from '@react-navigation/native';
 import { createRef } from 'react';
-import { AuthStackParamList } from '../Stack/AuthStack';
+import { RootStackParamList } from '../App';
 
-export const navigationRef = createRef<NavigationContainerRef<AuthStackParamList>>();
+export const navigationRef = createRef<NavigationContainerRef<RootStackParamList>>();
 
-export function navigate(name: keyof AuthStackParamList, params?: any) {
+export function navigate(name: keyof RootStackParamList, params?: any) {
   if (navigationRef.current) {
     navigationRef.current.navigate(name, params);
   }

@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheetModal from "../components/FollowList";
@@ -17,17 +18,18 @@ import { useFocusEffect } from "@react-navigation/native";
 import { StackScreenProps } from "@react-navigation/stack";
 import { getUserId } from "../services/TokenService";
 import { ProfileStackParamList } from "../Stack/ProfileStack";
+import PostComponent from "../components/Post";
 
 type Props = StackScreenProps<ProfileStackParamList, "FriendProfile">;
 
 const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
   const { userId } = route.params || {};
-  
   const [loading, setLoading] = useState(false);
   const [modalOption, setModalOption] = useState({
     type: "",
     visibile: false,
   });
+
   const [userData, setUserData] = useState({
     number_of_posts: 0,
     following: 0,
@@ -36,6 +38,32 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
     avatar_url: "",
     isFollowing: false,
   });
+
+  const [userPosts, setUserPosts] = useState([
+    {
+      id: "",
+      thumbnail_url: "",
+      post_audience: "Public",
+      title: "",
+      content: "",
+      created_at: "",
+      like_counts: 0,
+      comment_counts: 0,
+      isLike: false,
+    },
+  ]);
+
+  const handlePostDelete = (id: string) => {
+    setUserPosts((prevPosts) => prevPosts.filter((post) => post.id !== id));
+    setUserData({
+      number_of_posts: userData.number_of_posts - 1,
+      follower: userData.follower,
+      following: userData.following,
+      username: userData.username,
+      avatar_url: userData.avatar_url,
+      isFollowing: userData.isFollowing
+    })
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -103,17 +131,67 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
     fetchUserData()
   }, [userId])
 
-  const fetchUserData = async () => {
+  const fetchUserPosts = async () => {
     try {
       setLoading(true);
-        const response = await api.get(`/user/general-profile?userId=${userId}`);
-        setUserData(response.data.result);  
+      const response = await api.get(`/post/${userId}/posts`);
+      setUserPosts(response.data.result);
     } catch (error) {
       console.log(error);
     } finally {
       setLoading(false);
     }
   };
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+        const response = await api.get(`/user/general-profile?userId=${userId}`);
+        setUserData(response.data.result);  
+        if (userId === getUserId()) {
+          userData.isFollowing = true
+        }
+        if (response.data.result.isFollowing || userId === getUserId()) {
+          fetchUserPosts()
+        }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderItem = ({
+    item,
+  }: {
+    item: {
+      id: string;
+      thumbnail_url: string;
+      post_audience: string;
+      title: string;
+      content: string;
+      created_at: string;
+      like_counts: number;
+      comment_counts: number;
+      isLike: boolean;
+    };
+  }) => (
+    <PostComponent
+      userId={userId}
+      id={item.id}
+      title={item.title}
+      user_url={userData.avatar_url}
+      username={userData.username}
+      content={item.content}
+      created_at={item.created_at}
+      post_audience={item.post_audience}
+      post_thumbnail={item.thumbnail_url}
+      like_counts={item.like_counts}
+      comment_counts={item.comment_counts}
+      isLike={item.isLike}
+      onPostDeleted={handlePostDelete}
+    />
+  );
 
   const handleUserListChanged = (reloadPage: boolean) => {
     if (reloadPage)
@@ -124,97 +202,107 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBack(userId === undefined)}>
-          <Ionicons name="arrow-back" size={24} color="black" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{userData.username}</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <View style={styles.profileInfo}>
-        <Image
-          source={
-            userData.avatar_url
-              ? { uri: userData.avatar_url }
-              : require("../assets/default-avatar.png")
-          }
-          style={styles.profileImage}
-        />
-
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userData.number_of_posts}</Text>
-            <Text style={styles.statLabel}>Đã đăng</Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => {
-              if (userData.isFollowing)
-                setModalOption({ type: "followed", visibile: true })
-            }}
-          >
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.follower}</Text>
-              <Text style={styles.statLabel}>Người theo dõi</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => {
-              if (userData.isFollowing)
-                setModalOption({ type: "followed", visibile: true })
-            }}
-          >
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.following}</Text>
-              <Text style={styles.statLabel}>Theo dõi</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.buttonContainer}>
-          {userData.isFollowing ? (
-            <View style={styles.twoButtonsRow}>
-              <TouchableOpacity
-                onPress={() => unfollowFriend()}
-                style={[styles.followButton, styles.messageButton]}
-              >
-                <Text style={styles.followButtonText}>
-                  Bỏ theo dõi
-                </Text>
+      <FlatList
+        data={userPosts}
+        renderItem={(userData.isFollowing || userId === getUserId() )? renderItem : null}
+        keyExtractor={(item) => item.id}
+        style={styles.list}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => goBack(userId === undefined)}>
+                <Ionicons name="arrow-back" size={24} color="black" />
               </TouchableOpacity>
-
-              <TouchableOpacity
-                // onPress={() => {
-                //   navigation.navigate("ChatScreen"); 
-                // }}
-                style={[styles.followButton, styles.unfollowButton]}
-              >
-                <Text style={styles.unfollowButtonText}>
-                  Nhắn tin
-                </Text>
-              </TouchableOpacity>
+              <Text style={styles.headerTitle}>{userData.username}</Text>
+              <View style={{ width: 24 }} />
             </View>
-          ) : (
-            <TouchableOpacity
-              onPress={async () => {
-                if (userId === getUserId())
-                  navigation.navigate("ProfileDetail");
-                else {
-                  followFriend()
+
+            <View style={styles.profileInfo}>
+              <Image
+                source={
+                  userData.avatar_url
+                    ? { uri: userData.avatar_url }
+                    : require("../assets/default-avatar.png")
                 }
-              }}
-              style={styles.followButton}
-            >
-              <Text style={styles.followButtonText}>
-                {userId === getUserId() ? "Chỉnh sửa thông tin người dùng" : "Theo dõi"}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+                style={styles.profileImage}
+              />
 
+              <View style={styles.statsContainer}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{userData.number_of_posts}</Text>
+                  <Text style={styles.statLabel}>Đã đăng</Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    if (userData.isFollowing || userId === getUserId())
+                      setModalOption({ type: "followed", visibile: true })
+                  }}
+                >
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>{userData.follower}</Text>
+                    <Text style={styles.statLabel}>Người theo dõi</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    if (userData.isFollowing || userId === getUserId())
+                      setModalOption({ type: "following", visibile: true })
+                  }}
+                >
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>{userData.following}</Text>
+                    <Text style={styles.statLabel}>Theo dõi</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.buttonContainer}>
+                {userData.isFollowing ? (
+                  <View style={styles.twoButtonsRow}>
+                    <TouchableOpacity
+                      onPress={() => unfollowFriend()}
+                      style={[styles.followButton, styles.messageButton]}
+                    >
+                      <Text style={styles.followButtonText}>
+                        Bỏ theo dõi
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      // onPress={() => {
+                      //   navigation.navigate("ChatScreen"); 
+                      // }}
+                      style={[styles.followButton, styles.unfollowButton]}
+                    >
+                      <Text style={styles.unfollowButtonText}>
+                        Nhắn tin
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      if (userId === getUserId())
+                        navigation.navigate("ProfileDetail");
+                      else {
+                        followFriend()
+                      }
+                    }}
+                    style={styles.followButton}
+                  >
+                    <Text style={styles.followButtonText}>
+                      {userId === getUserId() ? "Chỉnh sửa thông tin người dùng" : "Theo dõi"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </>
+        }
+      />
       {modalOption.visibile && (
         <BottomSheetModal
           userId={userId}
@@ -376,6 +464,9 @@ const styles = StyleSheet.create({
   },
   actionText: {
     marginLeft: 5,
+  },
+  list: {
+    flex: 1,
   },
 });
 export default FriendProfileScreen;
