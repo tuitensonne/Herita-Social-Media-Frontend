@@ -1,22 +1,23 @@
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet, Modal } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 const LoadingOverlay = ({ visible }: { visible: boolean }) => {
+  if (!visible) return null;
+
   return (
-    <Modal transparent animationType="fade" visible={visible}>
-      <View style={styles.overlay}>
-        <ActivityIndicator size="large" color="#FF6F20" />
-      </View>
-    </Modal>
+    <View style={styles.overlay}>
+      <ActivityIndicator size="large" color="#FF6F20" />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    ...StyleSheet.absoluteFillObject, // phủ kín phần cha
+    backgroundColor: 'rgba(255, 255, 255, 1)', // nền mờ
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10, // đảm bảo nằm trên các phần khác nếu cần
   },
 });
 

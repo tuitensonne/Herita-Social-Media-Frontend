@@ -18,10 +18,10 @@ const Stack = createStackNavigator<HomeStackParamList>();
 export default function HomeStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="GeneralProfile" component={GeneralProfileScreen} options={{ headerShown: false }} /> 
-          <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ headerShown: false }} /> 
-          <Stack.Screen name="ProfileDetail" component={ProfileDetailSreen} options={{ headerShown: false }} /> 
+      <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="GeneralProfile" component={GeneralProfileScreen} options={{ headerShown: false }} /> 
+      <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ headerShown: false }} /> 
+      <Stack.Screen name="ProfileDetail" component={ProfileDetailSreen} options={{ headerShown: false }} /> 
     </Stack.Navigator>
   );
 }

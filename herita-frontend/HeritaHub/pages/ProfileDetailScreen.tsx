@@ -15,8 +15,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import LoadingOverlay from "../components/LoadingOverlay";
-import * as ImagePicker from "expo-image-picker";
-import { Modal } from "react-native";
+import AvatarSelectionModal from "../components/GetImageModal";
 import api from "../api";
 
 interface Props {
@@ -121,6 +120,10 @@ const ProfileDetailSreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAvatarSelected = (uri: string[]) => {
+    handleChange("avatar_url", uri[0]);
   };
 
   return (
@@ -259,81 +262,15 @@ const ProfileDetailSreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-      <Modal visible={showAvatarModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.smallTitle}>Choose your avatar</Text>
-
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={async () => {
-                setShowAvatarModal(false);
-                const perm = await ImagePicker.requestCameraPermissionsAsync();
-                if (perm.status !== "granted") {
-                  Alert.alert(
-                    "Error",
-                    "Don't have permission to access camera"
-                  );
-                  return;
-                }
-                const result = await ImagePicker.launchCameraAsync({
-                  mediaTypes: "images",
-                  allowsEditing: true,
-                  quality: 1,
-                });
-                if (!result.canceled && result.assets?.length > 0) {
-                  handleChange("avatar_url", result.assets[0].uri);
-                }
-              }}
-            >
-              <Text style={styles.modalButtonText}>Take photo</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={async () => {
-                setShowAvatarModal(false);
-                const perm =
-                  await ImagePicker.requestMediaLibraryPermissionsAsync();
-                if (perm.status !== "granted") {
-                  Alert.alert(
-                    "Error",
-                    "Don't have permission to access gallery"
-                  );
-                  return;
-                }
-                const result = await ImagePicker.launchImageLibraryAsync({
-                  mediaTypes: "images",
-                  allowsEditing: true,
-                  quality: 1,
-                });
-                if (!result.canceled && result.assets?.length > 0) {
-                  handleChange("avatar_url", result.assets[0].uri);
-                }
-              }}
-            >
-              <Text style={styles.modalButtonText}>Choose from gallery</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.modalButton,
-                { paddingVertical: 0, backgroundColor: "white" },
-              ]}
-              onPress={() => setShowAvatarModal(false)}
-            >
-              <Text
-                style={[
-                  styles.modalButtonText,
-                  { color: "#FF6F20", marginTop: 10 },
-                ]}
-              >
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      
+      <AvatarSelectionModal
+        visible={showAvatarModal}
+        multiSelection={false}
+        type="Image"
+        onClose={() => setShowAvatarModal(false)}
+        onImageSelected={handleAvatarSelected}
+      />
+      
       <LoadingOverlay visible={loading} />
     </SafeAreaView>
   );
@@ -426,37 +363,6 @@ const styles = StyleSheet.create({
   linkText: {
     color: "#FF6F20",
     fontWeight: "600",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 20,
-    width: "80%",
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 15,
-  },
-  modalButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: "#f2f2f2",
-    marginBottom: 10,
-    width: "100%",
-    alignItems: "center",
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: "500",
   },
   bioContainer: {
     flexDirection: "row",

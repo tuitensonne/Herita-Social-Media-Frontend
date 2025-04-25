@@ -19,7 +19,7 @@ export default function TabNavigator() {
           let iconName = '';
           
           if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
+            iconName = focused ? 'home' : 'home-outline'; 
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
