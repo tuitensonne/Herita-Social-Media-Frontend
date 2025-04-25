@@ -10,32 +10,38 @@ import {
 } from 'react-native';
 import api from '../api';
 import * as SecureStore from 'expo-secure-store';
+import LoadingOverlay from "../components/LoadingOverlay";
+import { setToken } from '../services/TokenService';
+import { RootStackParamList } from '../App';
+import { StackScreenProps } from '@react-navigation/stack';
 
-interface Props {
-  navigation: {
-    navigate: (screen: string) => void;
-  };
-}
+
+type Props = StackScreenProps<RootStackParamList, "SignIn">;
 
 const SignInScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSignIn = async () => {
+  const handleSignIn = async () => { 
     try {
+      setLoading(true)
       const response = await api.post('/auth/signin', {
         email,
         password,
       });
+      setToken(response.data.result.access_token)
       await SecureStore.setItemAsync('access_token', response.data.result.access_token);
       await SecureStore.setItemAsync('refresh_token', response.data.result.refresh_token);
       Alert.alert('Success', 'Signed in successfully!');
-      navigation.navigate('Home')
+      navigation.navigate('MainTabs')
     } catch (error: any) {
       console.log(error)
-      Alert.alert('Error', error.response?.data?.message || 'Sign in failed');
+      Alert.alert('Error', 'Sign in failed');
+    } finally {
+      setLoading(false);
     }
-  };
+  }; 
 
   return ( 
     <SafeAreaView style={styles.safeArea}>
@@ -73,6 +79,7 @@ const SignInScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.linkText} onPress={() => navigation.navigate('SignUp')}>Sign up</Text>
         </Text>
       </View>
+      <LoadingOverlay visible={loading} />
     </SafeAreaView>
   );
 };

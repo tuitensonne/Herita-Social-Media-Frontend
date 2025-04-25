@@ -10,9 +10,10 @@ import {
   Platform,
 } from 'react-native'; 
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import api from '../api';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 interface Props {
   navigation: {
@@ -28,7 +29,7 @@ const SignUpScreen: React.FC<Props> = ({ navigation }) => {
   const [dob, setDob] = useState<Date | null>(null); 
   const [gender, setGender] = useState('Male');
   const [showDatePicker, setShowDatePicker] = useState(false);
-
+  const [loading, setLoading] = useState(false)
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) setDob(selectedDate);
@@ -41,6 +42,7 @@ const SignUpScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     try {
+      setLoading(true)
       const response = await api.post('/auth/signup', {
         username: fullName,
         email,
@@ -53,7 +55,9 @@ const SignUpScreen: React.FC<Props> = ({ navigation }) => {
       navigation.navigate('SignIn');
     } catch (error: any) {
       console.log(error);
-      Alert.alert('Error', error.response?.data?.message || 'Sign up failed');
+      Alert.alert('Error', 'Sign up failed');
+    } finally {
+      setLoading(false)
     }
   };
 
@@ -148,6 +152,7 @@ const SignUpScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </Text>
       </View>
+      <LoadingOverlay visible={loading} />
     </SafeAreaView>
   );
 };
@@ -218,4 +223,4 @@ const styles = StyleSheet.create({
     color: '#FF6F20',
     fontWeight: '600',
   },
-});
+}); 
