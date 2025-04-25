@@ -9,9 +9,11 @@ import {
   StatusBar,
   SafeAreaView,
   ImageSourcePropType,
+  Dimensions,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import api from "../../api";
+import { useNavigation } from "@react-navigation/native";
+import api from "../api";
 
 interface CollapsibleSectionProps {
   title: string;
@@ -51,28 +53,16 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 };
 
 interface InfoRowProps {
-  label?: string;
-  value?: string;
-  image?: ImageSourcePropType;
+  label: string;
+  value: string;
   isLast?: boolean;
 }
 
-const InfoRow: React.FC<InfoRowProps> = ({
-  label,
-  value,
-  image,
-  isLast = false,
-}) => {
+const InfoRow: React.FC<InfoRowProps> = ({ label, value, isLast = false }) => {
   return (
     <View style={[styles.infoRow, !isLast && styles.infoRowBorder]}>
-      {image ? (
-        <Image source={image} style={styles.rowImage} resizeMode="cover" />
-      ) : (
-        <>
-          <Text style={styles.infoLabel}>{label}</Text>
-          <Text style={styles.infoValue}>{value}</Text>
-        </>
-      )}
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
     </View>
   );
 };
@@ -102,7 +92,9 @@ interface CultureContent {
 const DocumentScreen: React.FC<{ route: { params: { id: string } } }> = ({
   route,
 }) => {
-  const { id } = route.params; // Assume ID is passed via navigation params
+  //const { id } = route.params;
+  const id = "7a9de201-69da-4692-b7f2-57f11538d744";
+  const navigation = useNavigation();
   const [cultureContent, setCultureContent] = useState<CultureContent | null>(
     null
   );
@@ -111,15 +103,18 @@ const DocumentScreen: React.FC<{ route: { params: { id: string } } }> = ({
 
   useEffect(() => {
     const fetchCultureContent = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const response = await api.get(`/api/v1/culture-content/${id}`);
-        if (response.data.status === "success") {
+        const response = await api.get(`/culture-content/${id}`);
+        if (response.data.status === "success" && response.data.result) {
           setCultureContent(response.data.result);
         } else {
-          setError("Failed to fetch culture content");
+          setError(response.data.message || "Failed to fetch culture content");
         }
-      } catch (err) {
-        setError("An error occurred while fetching data");
+      } catch (err: any) {
+        console.error("Fetch Error:", err);
+        setError(err.message || "An error occurred while fetching data");
       } finally {
         setLoading(false);
       }
@@ -127,6 +122,72 @@ const DocumentScreen: React.FC<{ route: { params: { id: string } } }> = ({
 
     fetchCultureContent();
   }, [id]);
+
+  const parseKeyValueContent = (
+    content: string
+  ): { label: string; value: string }[] => {
+    if (!content) return [];
+    return content
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.includes(":"))
+      .map((line) => {
+        const separatorIndex = line.indexOf(":");
+        const label = line.substring(0, separatorIndex).trim();
+        const value = line.substring(separatorIndex + 1).trim();
+        return { label, value };
+      })
+      .filter((item) => item.label && item.value);
+  };
+
+  const renderSectionContent = (section: CultureContent["Content"][0]) => {
+    const hasImages = section.Media && section.Media.length > 0;
+    const hasTextContent = section.content && section.content.trim().length > 0;
+    const keyValuePairs = parseKeyValueContent(section.content);
+    const isLikelyKeyValue = keyValuePairs.length > 0 && hasTextContent;
+    const isLikelyParagraph = hasTextContent && !isLikelyKeyValue;
+    const isImageOnlySection = hasImages && !hasTextContent;
+
+    const imageElements = hasImages ? (
+      <View style={styles.imageContainer}>
+        {section.Media.map((media) => (
+          <Image
+            key={media.id}
+            source={{ uri: media.image_url }}
+            style={styles.contentImage}
+            resizeMode="cover"
+          />
+        ))}
+      </View>
+    ) : null;
+
+    let textElements = null;
+    if (isLikelyKeyValue) {
+      textElements = (
+        <View>
+          {keyValuePairs.map((item, idx) => (
+            <InfoRow
+              key={idx}
+              label={item.label}
+              value={item.value}
+              isLast={idx === keyValuePairs.length - 1}
+            />
+          ))}
+        </View>
+      );
+    } else if (isLikelyParagraph) {
+      textElements = (
+        <Text style={styles.paragraphText}>{section.content.trim()}</Text>
+      );
+    }
+
+    return (
+      <>
+        {textElements}
+        {imageElements}
+      </>
+    );
+  };
 
   if (loading) {
     return (
@@ -139,32 +200,29 @@ const DocumentScreen: React.FC<{ route: { params: { id: string } } }> = ({
   if (error || !cultureContent) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="black" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Error</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
         <Text style={styles.errorText}>{error || "No data available"}</Text>
       </SafeAreaView>
     );
   }
 
-  // Helper function to parse content string into key-value pairs
-  const parseContent = (
-    content: string
-  ): { label: string; value: string }[] => {
-    return content
-      .split("\n")
-      .filter((line) => line.includes(":"))
-      .map((line) => {
-        const [label, ...valueParts] = line.split(":");
-        return {
-          label: label.trim(),
-          value: valueParts.join(":").trim(),
-        };
-      });
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Tài liệu chi tiết</Text>
@@ -174,59 +232,28 @@ const DocumentScreen: React.FC<{ route: { params: { id: string } } }> = ({
       <ScrollView style={styles.container}>
         <View style={styles.titleSection}>
           <Text style={styles.mainTitle}>{cultureContent.title}</Text>
-          <Text style={styles.subtitle}>{cultureContent.description}</Text>
+          {cultureContent.description && (
+            <Text style={styles.subtitle}>{cultureContent.description}</Text>
+          )}
         </View>
 
-        {cultureContent.Content.map((section, index) => (
+        {cultureContent.Content.map((section) => (
           <CollapsibleSection
             key={section.id}
             title={section.title}
-            initialCollapsed={section.title !== "Thông tin chung"} // Expand "Thông tin chung" by default
+            initialCollapsed={section.title !== "Thông tin chung"}
           >
-            <View style={styles.detailedInfoContainer}>
-              {section.content &&
-              !["Một số hình ảnh", "Hình ảnh di tích"].includes(
-                section.title
-              ) ? (
-                <>
-                  {section.title === "Thông tin chung" ? (
-                    <Text style={styles.generalInfoText}>
-                      {section.content}
-                    </Text>
-                  ) : (
-                    parseContent(section.content).map((item, idx) => (
-                      <InfoRow
-                        key={idx}
-                        label={item.label}
-                        value={item.value}
-                        isLast={
-                          idx === parseContent(section.content).length - 1
-                        }
-                      />
-                    ))
-                  )}
-                </>
-              ) : null}
-
-              {section.Media.length > 0 && (
-                <View>
-                  {section.Media.map((media, idx) => (
-                    <InfoRow
-                      key={media.id}
-                      image={{ uri: media.image_url }}
-                      isLast={idx === section.Media.length - 1}
-                    />
-                  ))}
-                </View>
-              )}
-            </View>
+            {renderSectionContent(section)}
           </CollapsibleSection>
         ))}
+
         <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
+
+const screenWidth = Dimensions.get("window").width;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -250,9 +277,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     textAlign: "center",
+    flex: 1,
   },
   headerPlaceholder: {
-    width: 34,
+    width: 24 + 10,
   },
   container: {
     flex: 1,
@@ -261,65 +289,51 @@ const styles = StyleSheet.create({
   titleSection: {
     paddingHorizontal: 15,
     paddingTop: 20,
-    paddingBottom: 10,
+    paddingBottom: 15,
   },
   mainTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 5,
+    marginBottom: 8,
+    color: "#111",
   },
   subtitle: {
     fontSize: 14,
-    color: "#666",
+    color: "#555",
+    lineHeight: 20,
   },
-  sectionContainer: {
-    marginTop: 10,
-  },
+  sectionContainer: {},
   collapsibleHeader: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 15,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderBottomWidth: 1,
     borderColor: "#eee",
     backgroundColor: "#f9f9f9",
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
     marginLeft: 10,
+    color: "#333",
   },
   collapsibleContent: {
     paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: "#eee",
-  },
-  generalInfoText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#333",
-  },
-  detailedInfoContainer: {
-    borderWidth: 1,
-    borderColor: "#eee",
-    marginTop: 10,
+    paddingVertical: 15,
     backgroundColor: "#fff",
-    alignItems: "center",
-    width: "95%",
-    marginHorizontal: "auto",
+  },
+  paragraphText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#333",
+    marginBottom: 10,
   },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 15,
+    alignItems: "flex-start",
     paddingVertical: 10,
-  },
-  rowImage: {
-    width: "100%",
-    height: 200,
-    borderRadius: 8,
   },
   infoRowBorder: {
     borderBottomWidth: 1,
@@ -329,24 +343,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#555",
     fontWeight: "500",
-    flex: 1,
+    flex: 0.4,
+    marginRight: 10,
   },
   infoValue: {
     fontSize: 14,
     color: "#333",
     textAlign: "right",
-    flex: 1.5,
+    flex: 0.6,
+  },
+  imageContainer: {
+    marginTop: 10,
+  },
+  contentImage: {
+    width: screenWidth - 30,
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignSelf: "center",
   },
   loadingText: {
     fontSize: 16,
     textAlign: "center",
-    marginTop: 20,
+    marginTop: 50,
+    color: "#666",
   },
   errorText: {
     fontSize: 16,
     color: "red",
     textAlign: "center",
     marginTop: 20,
+    paddingHorizontal: 15,
   },
 });
 
