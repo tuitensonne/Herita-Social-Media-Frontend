@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import api from "../api";
 import LoadingOverlay from "./LoadingOverlay";
+import { getUserId } from "../services/TokenService";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const DISMISS_THRESHOLD = 150;
@@ -46,6 +47,7 @@ const BottomSheetModal: React.FC<Props> = ({
             id: "",
             name: "",
             avatar_url: "",
+            isFollowing: false
         },
     ]);
     
@@ -88,43 +90,61 @@ const BottomSheetModal: React.FC<Props> = ({
         navigation.navigate("FriendProfile", { userId: userId })
     }
 
-    const handleFollowAction = (userId: string) => {  
-        const title = type === "following" ? "Bỏ theo dõi người này?" : "Xóa người này khỏi danh sách người theo dõi?";
-        const actionText = type === "following" ? "Bỏ theo dõi" : "Xóa";
-      
-        Alert.alert( 
-            title,
-            "Bạn có chắc chắn muốn thực hiện hành động này?",
-            [
-                {
-                    text: "Không",
-                    style: "cancel",
-                },
-                {
-                text: "Có",
-                    onPress: async () => {
-                        try {
-                            setLoading(true); 
-                            if (type === "following") {
-                                const res = await api.delete(`/user/following?friend_id=${userId}`)
-                            } else if (type === "followed") {
-                                const res = await api.delete(`/user/follower?friend_id=${userId}`)
-                            }
-                            fetchUserList()
-                            if (onUserListChanged) {
-                                onUserListChanged(true);
-                            }
-                            Alert.alert("Thành công", `${actionText} thành công`);
-                        } catch (err) {
-                            console.log(err);
-                            Alert.alert("Lỗi", "Có lỗi xảy ra khi gửi yêu cầu");
-                        } finally {
-                            setLoading(false);
-                        }
+    const followFriend = async (friend_id: string) => {
+        try { 
+            setLoading(true)
+            await api.post(`/user/following?friend_id=${friend_id}`)
+            fetchUserList()
+            if (onUserListChanged) {
+                onUserListChanged(true);
+            }
+        } catch (error) {
+            console.log(error)
+        } finally {
+            setLoading(false)
+        }
+    }
+    const handleFollowAction = (friend_id: string, isFollowing: boolean) => { 
+        if (!isFollowing) {
+            followFriend(friend_id)
+        } else {
+            const title = type === "following" ? "Bỏ theo dõi người này?" : "Xóa người này khỏi danh sách người theo dõi?";
+            const actionText = type === "following" ? "Bỏ theo dõi" : "Xóa";
+          
+            Alert.alert( 
+                title,
+                "Bạn có chắc chắn muốn thực hiện hành động này?",
+                [
+                    {
+                        text: "Không",
+                        style: "cancel",
                     },
-                },
-            ]
-        );
+                    {
+                    text: "Có",
+                        onPress: async () => {
+                            try {
+                                setLoading(true); 
+                                if (type === "following") {
+                                    const res = await api.delete(`/user/following?friend_id=${friend_id}`)
+                                } else if (type === "followed") {
+                                    const res = await api.delete(`/user/follower?friend_id=${friend_id}`)
+                                }
+                                fetchUserList()
+                                if (onUserListChanged) {
+                                    onUserListChanged(true);
+                                }
+                                Alert.alert("Thành công", `${actionText} thành công`);
+                            } catch (err) {
+                                console.log(err);
+                                Alert.alert("Lỗi", "Có lỗi xảy ra khi gửi yêu cầu");
+                            } finally {
+                                setLoading(false);
+                            }
+                        },
+                    },
+                ]
+            );    
+        }
     };
       
     const panResponder = useRef(
@@ -169,36 +189,46 @@ const BottomSheetModal: React.FC<Props> = ({
 
     if (!visible) return null;
 
-    const renderItem = ({ item }: { item: { id: string; name: string; avatar_url: string } }) => (
+    const renderItem = ({ item }: { item: { id: string; name: string; avatar_url: string, isFollowing: boolean } }) => (
         <View style={styles.followerItem}>
             <TouchableOpacity 
                 style={styles.userInfoContainer}
                 onPress={() => handleNavigate(item.id)}
             >
                 <Image
-                source={
-                    item.avatar_url
-                    ? { uri: item.avatar_url }
-                    : require("../assets/default-avatar.png")
-                }
-                style={styles.avatar}
+                    source={
+                        item.avatar_url
+                        ? { uri: item.avatar_url }
+                        : require("../assets/default-avatar.png")
+                    }
+                    style={styles.avatar}
                 />
-                <Text style={styles.followerName}>{item.name}</Text>
+                <Text
+                    style={styles.followerName}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                >
+                    {item.name}
+                </Text>
+
             </TouchableOpacity>
         
             <View style={styles.buttonContainer}>
-                <TouchableOpacity
-                onPress={() => handleFollowAction(item.id)}
-                style={styles.followButton}
+                {item.id !== getUserId() && 
+                (<TouchableOpacity
+                    onPress={() => handleFollowAction(item.id, item.isFollowing)}
+                    style={styles.followButton}
                 >
                 <Text style={styles.followButtonText}>
-                    {type === "following" ? "Bỏ theo dõi" : "Xóa"}
+                    {item.isFollowing ? (type === "following" ? "Bỏ theo dõi" : "Xóa") : "Theo dõi"}
                 </Text>
-                </TouchableOpacity>
-        
-                <TouchableOpacity style={styles.messageButton}>
+                </TouchableOpacity>)}
+                
+                {(item.id !== getUserId() && item.isFollowing) && 
+                (<TouchableOpacity style={styles.messageButton}>
                     <Text style={styles.messageText}>Nhắn tin</Text>
-                </TouchableOpacity>
+                </TouchableOpacity>)}
+                
             </View>
         </View>
     );
@@ -283,13 +313,15 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 25,
-        marginRight: 15,
+        marginRight: 5,
     },
     followerName: {
         fontSize: 16,
         fontWeight: "500",
+        flexShrink: 1, 
         flex: 1,
-    },
+        marginRight: 5,
+    },    
     buttonContainer: {
         flexDirection: "row",
         alignItems: "center",

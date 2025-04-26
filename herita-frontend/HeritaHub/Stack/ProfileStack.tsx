@@ -15,9 +15,9 @@ const Stack = createStackNavigator<ProfileStackParamList>();
 export default function ProfileStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="GeneralProfile" component={GeneralProfileScreen} options={{ headerShown: false }} /> 
-          <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ headerShown: false }} /> 
-          <Stack.Screen name="ProfileDetail" component={ProfileDetailSreen} options={{ headerShown: false }} /> 
+        <Stack.Screen name="GeneralProfile" component={GeneralProfileScreen} options={{ headerShown: false }} /> 
+        <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ headerShown: false }} /> 
+        <Stack.Screen name="ProfileDetail" component={ProfileDetailSreen} options={{ headerShown: false }} /> 
     </Stack.Navigator>
   );
 }
