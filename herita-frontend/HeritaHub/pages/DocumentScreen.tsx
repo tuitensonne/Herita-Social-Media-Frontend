@@ -89,11 +89,12 @@ interface CultureContent {
   }[];
 }
 
-const DocumentScreen: React.FC<{ route: { params: { id: string } } }> = ({
-  route,
-}) => {
+// const DocumentScreen: React.FC<{ route: { params: { id: string } } }> = ({
+//   route,
+// }) => {
+const DocumentScreen: React.FC = () => {
   //const { id } = route.params;
-  const id = "7a9de201-69da-4692-b7f2-57f11538d744";
+  const id = "cfa4afc0-ab99-4c85-8bde-0713697c77ff";
   const navigation = useNavigation();
   const [cultureContent, setCultureContent] = useState<CultureContent | null>(
     null

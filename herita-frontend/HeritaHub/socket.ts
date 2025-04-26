@@ -1,6 +1,5 @@
 import { io, Socket } from "socket.io-client";
-
-const SOCKET_URL = "http://localhost:8080";
+const SOCKET_URL = process.env.EXPO_BASE_URL;
 
 const socket: Socket = io(SOCKET_URL, {
   transports: ["websocket"],

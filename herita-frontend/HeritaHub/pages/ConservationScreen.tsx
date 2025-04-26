@@ -65,9 +65,7 @@ const ConversationScreen = ({ navigation, route }: any) => {
   const [messageText, setMessageText] = useState("");
   const [loading, setLoading] = useState(true);
   const flatListRef = useRef<FlatList>(null);
-
   useEffect(() => {
-    // Lắng nghe tin nhắn riêng
     const handleNewPrivateMessage = (message: any) => {
       if (
         chatType === "private" &&
@@ -88,7 +86,6 @@ const ConversationScreen = ({ navigation, route }: any) => {
       }
     };
 
-    // Lắng nghe tin nhắn nhóm
     const handleNewGroupMessage = (message: any) => {
       if (chatType === "group" && message.group_id === chatId) {
         setMessages((prev) => [
@@ -105,7 +102,6 @@ const ConversationScreen = ({ navigation, route }: any) => {
         ]);
       }
     };
-
     socket.on("new_private_message", handleNewPrivateMessage);
     socket.on("new_group_message", handleNewGroupMessage);
 
@@ -115,7 +111,6 @@ const ConversationScreen = ({ navigation, route }: any) => {
     };
   }, [chatId, chatType, userId]);
 
-  // Tải lịch sử tin nhắn
   useEffect(() => {
     const fetchMessages = async () => {
       setLoading(true);
@@ -150,7 +145,6 @@ const ConversationScreen = ({ navigation, route }: any) => {
     }
   }, [chatId, chatType, userId]);
 
-  // Gửi tin nhắn
   const handleSend = useCallback(() => {
     if (messageText.trim()) {
       const newMessage: Message = {
@@ -166,7 +160,6 @@ const ConversationScreen = ({ navigation, route }: any) => {
       setMessages((prev) => [newMessage, ...prev]);
       setMessageText("");
 
-      // Gửi qua WebSocket
       if (chatType === "private") {
         socket.emit("send_private_message", {
           senderId: userId,
@@ -181,7 +174,6 @@ const ConversationScreen = ({ navigation, route }: any) => {
         });
       }
 
-      // Cuộn xuống dưới
       setTimeout(() => {
         flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 100);
