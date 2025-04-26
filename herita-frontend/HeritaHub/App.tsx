@@ -2,7 +2,6 @@
 // App.tsx
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import WelcomeScreen from './pages/WelcomeScreen';
@@ -12,7 +11,6 @@ import TabNavigator from './components/BottomNavBar';
 import { navigationRef } from './services/NavigationService';
 import DocumentScreen from './pages/DocumentScreen';
 
-export type RootStackParamList = {
 export type RootStackParamList = {
   Welcome: undefined;
   SignUp: undefined;
