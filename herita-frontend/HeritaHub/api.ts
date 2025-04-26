@@ -1,15 +1,36 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { refreshToken } from './services/auth.service';
+import { jwtDecode } from 'jwt-decode';
+import { getToken, setToken } from './services/TokenService';
+import { resetToSignIn } from './services/NavigationService';
 
-const getToken = async (): Promise<string | null> => {
-  return await SecureStore.getItemAsync('access_token');
+type DecodedToken = {
+  sub: string;
+  email: string;
+  exp: number;
 };
 
-const apiURL = process.env.EXPO_BASE_URL;
 const api = axios.create({
-  baseURL: apiURL,
+  baseURL: process.env.EXPO_BASE_URL,
 });
+
+const refreshToken = async (): Promise<string> => {
+  const refresh = await SecureStore.getItemAsync('refresh_token');
+  const response = await api.post(`/auth/refreshToken`, {
+    refreshToken: refresh
+  });
+  const { access_token, refresh_token } = response.data.result;
+  await SecureStore.setItemAsync('refresh_token', refresh_token);
+  return access_token;
+};
+
+export const isAccessTokenExpired = async (): Promise<boolean> => {
+  const accessToken = await SecureStore.getItemAsync('access_token');
+  if (!accessToken) return true;
+
+  const decoded = jwtDecode<DecodedToken>(accessToken);
+  return decoded.exp * 1000 < Date.now();
+};
 
 let isRefreshing = false;
 let failedQueue: {
@@ -30,7 +51,7 @@ const processQueue = (error: any, token: string | null = null) => {
 
 api.interceptors.request.use(
   async (config) => {
-    const token = await getToken();
+    const token = getToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -67,7 +88,7 @@ api.interceptors.response.use(
 
       try {
         const newToken = await refreshToken();
-
+        setToken(newToken);
         await SecureStore.setItemAsync('access_token', newToken);
         processQueue(null, newToken);
 
@@ -75,10 +96,12 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (err: any) {
         processQueue(err, null);
-
+        
         await SecureStore.deleteItemAsync('access_token');
         await SecureStore.deleteItemAsync('refresh_token');
-
+        
+        resetToSignIn();
+        
         return Promise.reject(err);
       } finally {
         isRefreshing = false;
