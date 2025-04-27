@@ -45,7 +45,7 @@ interface Comment {
   comment: {
     id: string;
     content: string;
-    created_at: string;
+    createdAt: string;
     state: number;
   }
   user: {
@@ -151,7 +151,7 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     
     setCurrentImageIndex(prevIndex => {
       if (prevIndex === postImages.length - 1) {
-        return 0; // Loop back to the first image
+        return 0; 
       } else {
         return prevIndex + 1;
       }
@@ -163,14 +163,13 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     
     setCurrentImageIndex(prevIndex => {
       if (prevIndex === 0) {
-        return postImages.length - 1; // Loop to the last image
+        return postImages.length - 1;
       } else {
         return prevIndex - 1;
       }
     });
   };
 
-  // Filter out comments with state -1 before setting them
   const filterValidComments = (commentsToFilter: Comment[]): Comment[] => {
     return commentsToFilter.filter(comment => comment.comment.state !== -1);
   };
@@ -178,7 +177,6 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
   const preloadComments = async () => {
     try {
       const result = await commentApiService.fetchComments(articleData.id, 1, 10);
-      // Filter out comments with state -1
       const validComments = filterValidComments(result.comments);
       setComments(validComments);
       
@@ -208,7 +206,6 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
       const nextPage = currentPage + 1;
       const result = await commentApiService.fetchComments(articleData.id, nextPage, 10);
       
-      // Filter out comments with state -1 and comments already fetched
       const filteredComments = filterValidComments(result.comments);
       const newComments = filteredComments.filter(
         newComment => !lastFetchedCommentIds.has(newComment.comment.id)
@@ -240,7 +237,6 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     try {
       const result = await commentApiService.fetchComments(articleData.id, 1, 11);
       
-      // Filter out comments with state -1
       const filteredComments = filterValidComments(result.comments);
       
       const existingCommentsMap = new Map();
@@ -320,7 +316,7 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
         comment: {
           id: tempId,
           content: commentText,
-          created_at: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
           state: 0
         },
         user: {
@@ -422,9 +418,9 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
           <Text style={styles.commentUsername}>{item.user.name}</Text>
           <Text style={styles.commentText}>{item.comment.content}</Text>
           <View style={styles.commentFooter}>
-            <Text style={styles.commentTime}>
-              {new Date(item.comment.created_at).toLocaleString()}
-            </Text>
+          <Text style={styles.commentTime}>
+            {isNaN(new Date(item.comment.createdAt).getTime()) ? 'Invalid Date' : new Date(item.comment.createdAt).toLocaleString()}
+          </Text>
           </View>
         </View>
       </View>
@@ -481,7 +477,6 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
           resizeMode="cover"
         />
         
-        {/* Navigation arrows */}
         {postImages.length > 1 && (
           <>
             <TouchableOpacity 
@@ -502,7 +497,6 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
           </>
         )}
         
-        {/* Image counter indicator */}
         {postImages.length > 1 && (
           <View style={styles.imageCounter}>
             <Text style={styles.imageCounterText}>

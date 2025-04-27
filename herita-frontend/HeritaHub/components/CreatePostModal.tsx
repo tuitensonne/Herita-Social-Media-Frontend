@@ -209,7 +209,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         <Text style={styles.title}>Thông tin bài đăng</Text>
 
         <TextInput
-          placeholder="Title"
+          placeholder="Tiêu đề"
           placeholderTextColor="#aaa"
           value={postData.title}
           onChangeText={(text) => handleChange("title", text)}
@@ -217,7 +217,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         />
         <TextInput
           style={styles.input}
-          placeholder="Everything about my post..."
+          placeholder="Nội dung bài viết..."
           placeholderTextColor="#aaa"
           multiline
           value={postData.content}
@@ -244,13 +244,13 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
             <MaterialIcons name="videocam" size={22} color="white" />
           </TouchableOpacity> */}
           <View style={styles.locationWrapper}>
-            <Text style={styles.addLocationText}>Add location</Text>
+            <Text style={styles.addLocationText}>Thêm địa điểm</Text>
             <TouchableOpacity 
               style={styles.locationButton}
               onPress={() => setShowLocationModal(true)}
             >
               <Text style={styles.locationText}>
-                {postData.location ? "On" : "Off"}
+                {postData.location ? "Bật" : "Tắt"}
               </Text>
             </TouchableOpacity>
           </View>

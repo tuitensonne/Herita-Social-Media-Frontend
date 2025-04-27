@@ -8,15 +8,17 @@ import {
   SafeAreaView,
   StatusBar,
   FlatList,
+  Alert,
 } from "react-native";
 import BottomSheetModal from "../components/FollowList";
 import api from "../api";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useFocusEffect } from "@react-navigation/native";
 import { StackScreenProps } from "@react-navigation/stack";
-import { getUserId, getUsername } from "../services/TokenService";
+import { getUserId, clearTokens } from "../services/TokenService"; // Thêm clearTokens
 import { ProfileStackParamList } from "../Stack/ProfileStack";
 import PostComponent from "../components/Post";
+import * as SecureStore from 'expo-secure-store'; // Thêm import SecureStore
 
 type Props = StackScreenProps<ProfileStackParamList, "GeneralProfile">;
 
@@ -26,6 +28,7 @@ const GeneralProfileScreen: React.FC<Props> = ({ navigation }) => {
     type: "",
     visibile: false,
   });
+  const [showLogoutMenu, setShowLogoutMenu] = useState(false);
 
   const [userData, setUserData] = useState({
     number_of_posts: 0,
@@ -96,6 +99,38 @@ const GeneralProfileScreen: React.FC<Props> = ({ navigation }) => {
   const handleUserListChanged = (reloadPage: boolean) => {
     if (reloadPage) fetchUserData();
   };
+  
+  // Thêm hàm xử lý đăng xuất
+  const handleLogout = async () => {
+    Alert.alert(
+      "Đăng xuất",
+      "Bạn có chắc chắn muốn đăng xuất?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel"
+        },
+        {
+          text: "Đăng xuất",
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await clearTokens(); 
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Welcome' as any }],
+              });
+            } catch (error) {
+              console.log("Lỗi khi đăng xuất:", error);
+              Alert.alert("Lỗi", "Không thể đăng xuất. Vui lòng thử lại sau.");
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const renderItem = ({
     item,
@@ -145,6 +180,26 @@ const GeneralProfileScreen: React.FC<Props> = ({ navigation }) => {
           <>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>{userData.username}</Text>
+              
+              {/* Thêm nút menu "..." */}
+              <TouchableOpacity 
+                style={styles.menuButton}
+                onPress={() => setShowLogoutMenu(!showLogoutMenu)}
+              >
+                <Text style={styles.menuButtonText}>...</Text>
+              </TouchableOpacity>
+              
+              {/* Menu đăng xuất */}
+              {showLogoutMenu && (
+                <View style={styles.logoutMenu}>
+                  <TouchableOpacity 
+                    style={styles.logoutButton}
+                    onPress={handleLogout}
+                  >
+                    <Text style={styles.logoutText}>Đăng xuất</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
             <View style={styles.profileInfo}>
@@ -231,10 +286,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 10,
     backgroundColor: "white",
+    position: "relative",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "bold",
+  },
+  menuButton: {
+    position: "absolute",
+    right: 15,
+    padding: 5,
+  },
+  menuButtonText: {
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  logoutMenu: {
+    position: "absolute",
+    right: 10,
+    top: 40,
+    backgroundColor: "white",
+    borderRadius: 5,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 1000,
+  },
+  logoutButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  logoutText: {
+    color: "#FF6B00",
   },
   profileInfo: {
     alignItems: "center",

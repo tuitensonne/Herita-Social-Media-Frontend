@@ -75,7 +75,7 @@ interface CultureContent {
   title: string;
   description: string;
   category: string;
-  Content: {
+  Content_section: {
     id: string;
     title: string;
     content: string;
@@ -110,11 +110,7 @@ const DocumentScreen: React.FC<DocumentScreenProps> = ({
       setError(null);
       try {
         const response = await api.get(`/culture-content/${id}`);
-        if (response.data.status === "success" && response.data.result) {
-          setCultureContent(response.data.result);
-        } else {
-          setError(response.data.message || "Failed to fetch culture content");
-        }
+        setCultureContent(response.data.result);
       } catch (err: any) {
         console.error("Fetch Error:", err);
         setError(err.message || "An error occurred while fetching data");
@@ -143,7 +139,7 @@ const DocumentScreen: React.FC<DocumentScreenProps> = ({
       .filter((item) => item.label && item.value);
   };
 
-  const renderSectionContent = (section: CultureContent["Content"][0]) => {
+  const renderSectionContent = (section: CultureContent["Content_section"][0]) => {
     const hasImages = section.Media && section.Media.length > 0;
     const hasTextContent = section.content && section.content.trim().length > 0;
     const keyValuePairs = parseKeyValueContent(section.content);
@@ -240,7 +236,7 @@ const DocumentScreen: React.FC<DocumentScreenProps> = ({
           )}
         </View>
 
-        {cultureContent.Content.map((section) => (
+        {cultureContent.Content_section.map((section) => (
           <CollapsibleSection
             key={section.id}
             title={section.title}
@@ -327,10 +323,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   paragraphText: {
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 16,
+    lineHeight: 24,
     color: "#333",
-    marginBottom: 10,
+    textAlign: "justify",
   },
   infoRow: {
     flexDirection: "row",

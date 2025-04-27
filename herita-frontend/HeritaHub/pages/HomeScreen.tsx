@@ -18,6 +18,24 @@ const HomeScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [uploadingPost, setUploadingPost] = useState<number>(0);
+  const [userPosts, setUserPosts] = useState([
+    {
+      id: '',
+      userId: '',
+      thumbnail_url: '',
+      post_audience: 'Public',
+      title: '',
+      content: '',
+      created_at: '',
+      like_counts: 0,
+      comment_counts: 0,
+      isLike: false,
+      locationId: '',
+      username: '',
+      avatar_url: '',
+    },
+  ]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const showCreatePostModal = () => setIsModalVisible(true);
   const hideCreatePostModal = () => setIsModalVisible(false);
@@ -27,30 +45,6 @@ const HomeScreen: React.FC = () => {
     hideCreatePostModal();
   };
 
-  const [userPosts, setUserPosts] = useState([
-    {
-      id: "",
-      userId: "",
-      thumbnail_url: "",
-      post_audience: "Public",
-      title: "",
-      content: "",
-      created_at: "",
-      like_counts: 0,
-      comment_counts: 0,
-      isLike: false,
-      locationId: "",
-      username: "",
-      avatar_url: "",
-    },
-  ]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchUserPosts();
-    }, [])
-  );
-  
   const fetchUserPosts = async () => {
     try {
       setLoading(true);
@@ -60,20 +54,26 @@ const HomeScreen: React.FC = () => {
       console.log(error);
     } finally {
       setLoading(false);
+      setRefreshing(false); // Set refreshing to false after data has been fetched
     }
   };
 
   const handlePostDelete = (id: string) => {
     setUserPosts((prevPosts) => prevPosts.filter((post) => post.id !== id));
   };
-  
+
   const handlePostCompleted = () => {
     setUploadingPost(0);
   };
-  
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchUserPosts();
+  };
+
   const renderItem = ({
     item,
-  } : {
+  }: {
     item: {
       id: string;
       userId: string;
@@ -107,13 +107,20 @@ const HomeScreen: React.FC = () => {
       onPostDeleted={handlePostDelete}
     />
   );
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserPosts();
+    }, [])
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Home Feed</Text>
+        <Text style={styles.headerTitle}>Bảng tin</Text>
         <TouchableOpacity style={styles.createPostButton} onPress={showCreatePostModal}>
           <MaterialIcons name="post-add" size={24} color="#FF6F20" />
-          <Text style={styles.createPostText}>Create Post</Text>
+          <Text style={styles.createPostText}>Tạo bài viết</Text>
         </TouchableOpacity>
       </View>
 
@@ -123,6 +130,8 @@ const HomeScreen: React.FC = () => {
         keyExtractor={(item) => item.id}
         style={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshing={refreshing} // Binding the refreshing state to FlatList
+        onRefresh={handleRefresh} // Trigger the refresh on pull-down
       />
 
       <Modal

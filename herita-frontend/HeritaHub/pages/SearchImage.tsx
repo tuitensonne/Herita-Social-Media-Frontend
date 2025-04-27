@@ -112,9 +112,9 @@ const CameraScreen: React.FC = () => {
             
         })
         const result = await response.data.result;
-       
+        console.log(result[0])
         if (response) {
-            navigate('Document', {id: result[0].id})
+            navigate('Document', {id: result[0]})
         } else {
             Alert.alert('Lỗi', result.message || 'Có lỗi xảy ra khi tải ảnh lên.');
         }
@@ -138,9 +138,9 @@ const CameraScreen: React.FC = () => {
             <View style={[styles.rhombus, styles.orangePart]} />
             <View style={[styles.rhombus, styles.bluePart]} />
           </View>
-          <Text style={styles.appName}>Search culture by Image</Text>
+          <Text style={styles.appName}>Tìm kiếm nội dung văn hóa</Text>
           <Text style={styles.welcomeText}>
-            Welcome to PhotoSearch, hope you have a great experience!
+            Chào mừng đến với HeritaHub, hi vọng bạn sẽ có trải nghiệm tốt
           </Text>
         </View>
 

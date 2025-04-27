@@ -77,6 +77,7 @@ const BottomSheetModal: React.FC<Props> = ({
     try {
       setLoading(true);
       const response = await api.get(`/user/${type}?friend_id=${userId}`);
+      console.log(response)
       const data = response.data.result;
       setUserList([...data]);
     } catch (error) {
