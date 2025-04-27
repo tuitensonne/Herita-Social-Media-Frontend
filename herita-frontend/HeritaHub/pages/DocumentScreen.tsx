@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import api from "../api";
 import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../App";
@@ -74,7 +75,7 @@ interface CultureContent {
   title: string;
   description: string;
   category: string;
-  Content_section: {
+  Content: {
     id: string;
     title: string;
     content: string;
@@ -92,7 +93,10 @@ interface CultureContent {
 
 type DocumentScreenProps = StackScreenProps<RootStackParamList, "Document">;
 
-const DocumentScreen: React.FC<DocumentScreenProps> = ({ route, navigation }) => {
+const DocumentScreen: React.FC<DocumentScreenProps> = ({
+  route,
+  navigation,
+}) => {
   const { id } = route.params;
   const [cultureContent, setCultureContent] = useState<CultureContent | null>(
     null
@@ -139,7 +143,7 @@ const DocumentScreen: React.FC<DocumentScreenProps> = ({ route, navigation }) =>
       .filter((item) => item.label && item.value);
   };
 
-  const renderSectionContent = (section: CultureContent["Content_section"][0]) => {
+  const renderSectionContent = (section: CultureContent["Content"][0]) => {
     const hasImages = section.Media && section.Media.length > 0;
     const hasTextContent = section.content && section.content.trim().length > 0;
     const keyValuePairs = parseKeyValueContent(section.content);
@@ -236,7 +240,7 @@ const DocumentScreen: React.FC<DocumentScreenProps> = ({ route, navigation }) =>
           )}
         </View>
 
-        {cultureContent.Content_section.map((section) => (
+        {cultureContent.Content.map((section) => (
           <CollapsibleSection
             key={section.id}
             title={section.title}
@@ -327,7 +331,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: "#333",
     marginBottom: 10,
-    textAlign: 'justify',
   },
   infoRow: {
     flexDirection: "row",
