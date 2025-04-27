@@ -14,6 +14,9 @@ import {
 import socket from "../socket";
 import api from "../api";
 import { getUserId } from "../services/TokenService";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import CreateGroupModal from "../components/CreateGroupModal";
+
 interface ChatItem {
   id: string;
   name: string;
@@ -31,7 +34,9 @@ const ChatListItem = React.memo(
         source={
           item.avatar
             ? { uri: item.avatar }
-            : require("../assets/default-avatar.png")
+            : item.type === "group"
+            ? require("../assets/default-group.jpg") // Ảnh mặc định cho nhóm
+            : require("../assets/default-avatar.png") // Ảnh mặc định cho người dùng
         }
         style={styles.avatar}
       />
@@ -46,19 +51,21 @@ const ChatListItem = React.memo(
   )
 );
 
-const Header = React.memo(() => (
-  <View style={styles.header}>
-    <TouchableOpacity style={styles.backButton}>
-      <Text style={styles.backIcon}>←</Text>
-    </TouchableOpacity>
-    <Text style={styles.headerTitle}>Chat</Text>
-  </View>
-));
+const Header = React.memo(
+  ({ onCreateGroup }: { onCreateGroup: () => void }) => (
+    <View style={styles.header}>
+      <Text style={styles.headerTitle}>Chat</Text>
+      <TouchableOpacity onPress={onCreateGroup}>
+        <Ionicons name="add-circle-outline" size={24} color="black" />
+      </TouchableOpacity>
+    </View>
+  )
+);
 
 const SearchBar = React.memo(() => (
   <View style={styles.searchContainer}>
     <View style={styles.searchBar}>
-      <Text style={styles.searchIcon}>🔍</Text>
+      <Ionicons name="search-outline" size={24} color="gray" />
       <TextInput
         style={styles.searchInput}
         placeholder="Tìm kiếm người dùng hoặc nhóm"
@@ -108,14 +115,11 @@ const ChatListScreen = ({ navigation, route }: any) => {
   const [activeTab, setActiveTab] = useState<"chat" | "group">("chat");
   const [chatData, setChatData] = useState<ChatItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
   const userId = getUserId();
 
-  // Thiết lập WebSocket
   useEffect(() => {
-    // Tham gia phòng của người dùng
     socket.emit("join", userId);
-
-    // Lắng nghe tin nhắn riêng mới
     const handleNewPrivateMessage = (message: any) => {
       setChatData((prev) => {
         const updatedChats = [...prev];
@@ -141,7 +145,6 @@ const ChatListScreen = ({ navigation, route }: any) => {
       });
     };
 
-    // Lắng nghe tin nhắn nhóm mới
     const handleNewGroupMessage = (message: any) => {
       setChatData((prev) => {
         const updatedChats = [...prev];
@@ -165,7 +168,6 @@ const ChatListScreen = ({ navigation, route }: any) => {
       });
     };
 
-    // Lắng nghe nhóm mới
     const handleGroupCreated = (group: any) => {
       setChatData((prev) => [
         {
@@ -176,7 +178,7 @@ const ChatListScreen = ({ navigation, route }: any) => {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          avatar: "",
+          avatar: "", // Nhóm mới tạo không có avatar
           type: "group",
           unread: false,
         },
@@ -195,7 +197,6 @@ const ChatListScreen = ({ navigation, route }: any) => {
     };
   }, [userId]);
 
-  // Tải danh sách cuộc trò chuyện hoặc nhóm
   useEffect(() => {
     const fetchChats = async () => {
       setLoading(true);
@@ -204,11 +205,10 @@ const ChatListScreen = ({ navigation, route }: any) => {
         if (activeTab === "chat") {
           response = await api.get(`/chat/conversations/${userId}`);
         } else {
-          response = await api.get(`/chat/conversations/group`);
+          response = await api.get(`/chat/conversations/group/${userId}`);
         }
 
         const chats = response.data;
-
         const formatted = chats.map((chat: any) => ({
           id: activeTab === "chat" ? chat.id : chat.id,
           name: activeTab === "chat" ? chat.username : chat.name,
@@ -219,7 +219,7 @@ const ChatListScreen = ({ navigation, route }: any) => {
                 minute: "2-digit",
               })
             : "",
-          avatar: activeTab === "chat" ? chat.avatar_url || "" : "",
+          avatar: activeTab === "chat" ? chat.avatar_url || "" : "", // Nhóm không có avatar mặc định
           type: activeTab === "chat" ? "private" : "group",
           unread: false,
         }));
@@ -257,10 +257,44 @@ const ChatListScreen = ({ navigation, route }: any) => {
     [handleChatPress]
   );
 
+  const openCreateGroupModal = () => {
+    setModalVisible(true);
+  };
+
+  const handleGroupCreated = () => {
+    if (activeTab === "group") {
+      setChatData([]);
+      const fetchChats = async () => {
+        try {
+          const response = await api.get(`/chat/conversations/group/${userId}`);
+          const chats = response.data;
+          const formatted = chats.map((chat: any) => ({
+            id: chat.id,
+            name: chat.name,
+            message: chat.lastMessage || "Chưa có tin nhắn",
+            time: chat.lastMessageTime
+              ? new Date(chat.lastMessageTime).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "",
+            avatar: "", // Nhóm không có avatar
+            type: "group",
+            unread: false,
+          }));
+          setChatData(formatted);
+        } catch (err) {
+          console.error("Lỗi khi làm mới danh sách nhóm:", err);
+        }
+      };
+      fetchChats();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <Header />
+      <Header onCreateGroup={openCreateGroupModal} />
       <SearchBar />
       <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
       {loading ? (
@@ -281,6 +315,11 @@ const ChatListScreen = ({ navigation, route }: any) => {
           showsVerticalScrollIndicator={false}
         />
       )}
+      <CreateGroupModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onGroupCreated={handleGroupCreated}
+      />
     </SafeAreaView>
   );
 };
@@ -293,19 +332,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     height: 56,
     paddingHorizontal: 16,
-  },
-  backButton: {
-    padding: 8,
-  },
-  backIcon: {
-    fontSize: 24,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
-    marginLeft: 16,
   },
   searchContainer: {
     paddingHorizontal: 16,
@@ -318,10 +351,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     height: 44,
-  },
-  searchIcon: {
-    marginRight: 8,
-    fontSize: 16,
   },
   searchInput: {
     flex: 1,

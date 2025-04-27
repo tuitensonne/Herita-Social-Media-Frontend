@@ -234,7 +234,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
           >
             <MaterialIcons name="photo-library" size={22} color="white" />
           </TouchableOpacity>
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.mediaIcon}
             onPress={() => {
               setType("Video");
@@ -242,7 +242,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
             }}
           >
             <MaterialIcons name="videocam" size={22} color="white" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           <View style={styles.locationWrapper}>
             <Text style={styles.addLocationText}>Add location</Text>
             <TouchableOpacity 

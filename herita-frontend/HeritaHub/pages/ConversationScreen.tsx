@@ -14,45 +14,72 @@ import {
 } from "react-native";
 import socket from "../socket";
 import api from "../api";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 interface Message {
   id: string;
   text: string;
   time: string;
   isSent: boolean;
+  tempId?: string;
+  senderName?: string;
+  senderAvatar?: string;
 }
 
-const MessageBubble = React.memo(({ message }: { message: Message }) => (
-  <View style={[styles.messageRow, message.isSent && styles.sentMessageRow]}>
-    {!message.isSent && (
-      <Image
-        source={require("../assets/default-avatar.png")}
-        style={styles.messageAvatar}
-      />
-    )}
-    <View
-      style={[
-        styles.messageBubble,
-        message.isSent
-          ? styles.sentMessageBubble
-          : styles.receivedMessageBubble,
-      ]}
-    >
-      <Text
-        style={[styles.messageText, message.isSent && styles.sentMessageText]}
-      >
-        {message.text}
-      </Text>
+const MessageBubble = React.memo(
+  ({ message, chatType }: { message: Message; chatType: string }) => (
+    <View style={[styles.messageRow, message.isSent && styles.sentMessageRow]}>
+      {!message.isSent && (
+        <Image
+          source={
+            message.senderAvatar
+              ? { uri: message.senderAvatar }
+              : require("../assets/default-avatar.png")
+          }
+          style={styles.messageAvatar}
+        />
+      )}
+      <View style={styles.messageContainer}>
+        {chatType === "group" && !message.isSent && message.senderName && (
+          <Text style={styles.senderName}>{message.senderName}</Text>
+        )}
+        <View
+          style={[
+            styles.messageBubble,
+            message.isSent
+              ? styles.sentMessageBubble
+              : styles.receivedMessageBubble,
+          ]}
+        >
+          <Text
+            style={[
+              styles.messageText,
+              message.isSent && styles.sentMessageText,
+            ]}
+          >
+            {message.text}
+          </Text>
+        </View>
+        <Text
+          style={[
+            styles.messageTime,
+            message.isSent
+              ? styles.sentMessageTime
+              : styles.receivedMessageTime,
+          ]}
+        >
+          {message.time}
+        </Text>
+      </View>
     </View>
-    <Text style={styles.messageTime}>{message.time}</Text>
-  </View>
-));
+  )
+);
 
 const ConversationHeader = React.memo(
   ({ onBack, chatName }: { onBack: () => void; chatName: string }) => (
     <View style={styles.header}>
       <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backIcon}>←</Text>
+        <Ionicons name="arrow-back" size={24} color="black" />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>{chatName || "Chat"}</Text>
     </View>
@@ -62,46 +89,53 @@ const ConversationHeader = React.memo(
 const ConversationScreen = ({ navigation, route }: any) => {
   const { chatId, chatType, chatName, userId } = route.params;
   const [messages, setMessages] = useState<Message[]>([]);
+  const [tempMessage, setTempMessage] = useState<Message | null>(null);
   const [messageText, setMessageText] = useState("");
   const [loading, setLoading] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+
   useEffect(() => {
     const handleNewPrivateMessage = (message: any) => {
       if (
         chatType === "private" &&
-        (message.sender_id === chatId || message.receiver_id === chatId)
+        (message.sender.id === chatId || message.receiver.id === chatId)
       ) {
-        setMessages((prev) => [
-          {
-            id: message.id,
-            text: message.content,
-            time: new Date(message.created_at).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            isSent: message.sender_id === userId,
-          },
-          ...prev,
-        ]);
+        const newMessage = {
+          id: message.id,
+          text: message.content,
+          time: new Date(message.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          isSent: message.sender.id === userId,
+          senderName: message.sender.username,
+          senderAvatar: message.sender.avatar_url,
+        };
+
+        setMessages((prev) => [newMessage, ...prev]);
+        setTempMessage(null);
       }
     };
 
     const handleNewGroupMessage = (message: any) => {
       if (chatType === "group" && message.group_id === chatId) {
-        setMessages((prev) => [
-          {
-            id: message.id,
-            text: message.content,
-            time: new Date(message.created_at).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            isSent: message.sender_id === userId,
-          },
-          ...prev,
-        ]);
+        const newMessage = {
+          id: message.id,
+          text: message.content,
+          time: new Date(message.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          isSent: message.sender.id === userId,
+          senderName: message.sender.username,
+          senderAvatar: message.sender.avatar_url,
+        };
+
+        setMessages((prev) => [newMessage, ...prev]);
+        setTempMessage(null);
       }
     };
+
     socket.on("new_private_message", handleNewPrivateMessage);
     socket.on("new_group_message", handleNewGroupMessage);
 
@@ -121,7 +155,6 @@ const ConversationScreen = ({ navigation, route }: any) => {
         } else {
           response = await api.get(`/chat/group/${chatId}`);
         }
-
         const formattedMessages = response.data.map((msg: any) => ({
           id: msg.id,
           text: msg.content,
@@ -129,7 +162,9 @@ const ConversationScreen = ({ navigation, route }: any) => {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          isSent: msg.sender_id === userId,
+          isSent: msg.sender.id === userId,
+          senderName: msg.sender.username,
+          senderAvatar: msg.sender.avatar_url,
         }));
 
         setMessages(formattedMessages.reverse());
@@ -147,17 +182,21 @@ const ConversationScreen = ({ navigation, route }: any) => {
 
   const handleSend = useCallback(() => {
     if (messageText.trim()) {
+      const tempId = `temp-${Date.now()}`;
       const newMessage: Message = {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         text: messageText,
         time: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
         isSent: true,
+        tempId,
+        senderName: "Bạn",
+        senderAvatar: undefined,
       };
 
-      setMessages((prev) => [newMessage, ...prev]);
+      setTempMessage(newMessage);
       setMessageText("");
 
       if (chatType === "private") {
@@ -165,12 +204,14 @@ const ConversationScreen = ({ navigation, route }: any) => {
           senderId: userId,
           receiverId: chatId,
           content: messageText,
+          tempId,
         });
       } else {
         socket.emit("send_group_message", {
           senderId: userId,
           groupId: chatId,
           content: messageText,
+          tempId,
         });
       }
 
@@ -186,9 +227,13 @@ const ConversationScreen = ({ navigation, route }: any) => {
 
   const keyExtractor = useCallback((item: Message) => item.id, []);
   const renderItem = useCallback(
-    ({ item }: { item: Message }) => <MessageBubble message={item} />,
-    []
+    ({ item }: { item: Message }) => (
+      <MessageBubble message={item} chatType={chatType} />
+    ),
+    [chatType]
   );
+
+  const displayMessages = tempMessage ? [tempMessage, ...messages] : messages;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -203,7 +248,7 @@ const ConversationScreen = ({ navigation, route }: any) => {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={displayMessages}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
             inverted={true}
@@ -261,9 +306,6 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  backIcon: {
-    fontSize: 24,
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
@@ -275,31 +317,44 @@ const styles = StyleSheet.create({
   },
   messageRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "flex-start",
     marginVertical: 4,
     maxWidth: "80%",
   },
   sentMessageRow: {
     alignSelf: "flex-end",
+    flexDirection: "row-reverse",
+  },
+  messageContainer: {
+    flexShrink: 1,
+    justifyContent: "flex-start",
   },
   messageAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginRight: 8,
+    marginHorizontal: 8,
+    marginTop: 1,
   },
   messageBubble: {
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    maxWidth: "70%",
+    maxWidth: "100%",
   },
   sentMessageBubble: {
     backgroundColor: "#FF7733",
-    alignSelf: "flex-end",
+    borderTopRightRadius: 0,
   },
   receivedMessageBubble: {
     backgroundColor: "#FFF0E6",
+    borderTopLeftRadius: 0,
+  },
+  senderName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 2,
   },
   messageText: {
     fontSize: 16,
@@ -310,9 +365,14 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     fontSize: 12,
-    color: "#9EA3B0",
-    marginLeft: 8,
+    marginHorizontal: 8,
     alignSelf: "flex-end",
+  },
+  sentMessageTime: {
+    color: "#FF7733",
+  },
+  receivedMessageTime: {
+    color: "#888",
   },
   inputContainer: {
     flexDirection: "row",

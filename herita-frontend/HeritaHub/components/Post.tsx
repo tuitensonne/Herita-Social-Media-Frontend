@@ -20,6 +20,7 @@ interface PostProps {
     comment_counts: number;
     post_thumbnail: string;
     isLike: boolean;
+    location_id: string;
     onPostDeleted: (id: string) => void;
 }
 
@@ -36,6 +37,7 @@ const PostComponent: React.FC<PostProps> = ({
     user_url,
     id,
     isLike,
+    location_id,
     onPostDeleted,
 }) => {
     const [modalVisible, setModalVisible] = useState(false);
@@ -156,10 +158,10 @@ const PostComponent: React.FC<PostProps> = ({
                     <Text style={styles.actionText}>Xem chi tiết</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.actionButton} onPress={onSharePress}>
+                {/* <TouchableOpacity style={styles.actionButton} onPress={onSharePress}>
                     <Fontisto name="share-a" size={20} color="#555" style={styles.actionIcon} />
                     <Text style={styles.actionText}>Share</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
             </View>
 
             {/* Modal xác nhận xóa */}
@@ -208,10 +210,10 @@ const PostComponent: React.FC<PostProps> = ({
                     user_url,
                     id,
                     isLike: liked,
+                    location_id: location_id
                 }}
                 onAction={(currentLikeState) => handleLikeToggle(currentLikeState)}
-                onComment={() => handleCommentToggle()}
-            />
+                onComment={() => handleCommentToggle()} navigation={undefined}            />
         </View>
     );
 };

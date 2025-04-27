@@ -46,6 +46,7 @@ const GeneralProfileScreen: React.FC<Props> = ({ navigation }) => {
       like_counts: 0,
       comment_counts: 0,
       isLike: false,
+      locationId: ""
     },
   ]);
 
@@ -71,6 +72,7 @@ const GeneralProfileScreen: React.FC<Props> = ({ navigation }) => {
     try {
       setLoading(true);
       const response = await api.get(`/post/${getUserId()}/posts`);
+      console.log(response.data.result.PostLocation)
       setUserPosts(response.data.result);
     } catch (error) {
       console.log(error);
@@ -109,6 +111,7 @@ const GeneralProfileScreen: React.FC<Props> = ({ navigation }) => {
       like_counts: number;
       comment_counts: number;
       isLike: boolean;
+      locationId: string;
     };
   }) => (
     <PostComponent
@@ -124,6 +127,7 @@ const GeneralProfileScreen: React.FC<Props> = ({ navigation }) => {
       like_counts={item.like_counts}
       comment_counts={item.comment_counts}
       isLike={item.isLike}
+      location_id={item.locationId}
       onPostDeleted={handlePostDelete}
     />
   );
@@ -206,9 +210,7 @@ const GeneralProfileScreen: React.FC<Props> = ({ navigation }) => {
           type={modalOption.type}
           visible={modalOption.visibile}
           onClose={() => setModalOption({ type: "", visibile: false })}
-          navigation={{
-            navigate: navigation.navigate,
-          }}
+          navigation={navigation}
           onUserListChanged={handleUserListChanged}
         />
       )}

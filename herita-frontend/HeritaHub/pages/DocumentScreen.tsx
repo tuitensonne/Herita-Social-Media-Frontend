@@ -14,6 +14,8 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import api from "../api";
+import { StackScreenProps } from "@react-navigation/stack";
+import { RootStackParamList } from "../App";
 
 interface CollapsibleSectionProps {
   title: string;
@@ -89,13 +91,13 @@ interface CultureContent {
   }[];
 }
 
-// const DocumentScreen: React.FC<{ route: { params: { id: string } } }> = ({
-//   route,
-// }) => {
-const DocumentScreen: React.FC = () => {
-  //const { id } = route.params;
-  const id = "cfa4afc0-ab99-4c85-8bde-0713697c77ff";
-  const navigation = useNavigation();
+type DocumentScreenProps = StackScreenProps<RootStackParamList, "Document">;
+
+const DocumentScreen: React.FC<DocumentScreenProps> = ({
+  route,
+  navigation,
+}) => {
+  const { id } = route.params;
   const [cultureContent, setCultureContent] = useState<CultureContent | null>(
     null
   );
