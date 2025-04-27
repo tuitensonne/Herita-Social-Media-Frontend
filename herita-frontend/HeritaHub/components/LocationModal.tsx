@@ -124,7 +124,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
     const fetchNearbyPlaces = async (latitude: number, longitude: number) => {
         try {
             setIsLoading(true);
-            const response = await api.get(`location/nearby?latitude=${latitude}&longitude=${longitude}&page=1&limit=10`);
+            const response = await api.get(`location/nearby?latitude=${latitude}&longitude=${longitude}&page=1&limit=50`);
             setSuggestedLocations(response.data.result);
         } catch (error) {
             console.error("Lỗi lấy địa điểm gần bạn:", error);

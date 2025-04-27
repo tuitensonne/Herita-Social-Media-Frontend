@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,10 +17,12 @@ import {
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import api from '../api';
 import { getUserId, getUsername, getUserUrl } from '../services/TokenService';
+import { navigate } from '../services/NavigationService';
 
 interface PostDetailModalProps {
   visible: boolean;
   onClose: () => void;
+  navigation: any;
   articleData: {
     id: string;
     title: string;
@@ -33,6 +35,7 @@ interface PostDetailModalProps {
     comment_counts: number;
     post_thumbnail: string;
     isLike: boolean;
+    location_id?: string;
   };
   onAction: (currentLikeState: boolean) => void;
   onComment: () => void;
@@ -42,13 +45,19 @@ interface Comment {
   comment: {
     id: string;
     content: string;
-    created_at: string;
+    createdAt: string;
+    state: number;
   }
   user: {
     id: string;
     name: string;
     avatar_url: string | null;
   }
+}
+
+interface PostImage {
+  id: string;
+  image_url: string;
 }
 
 const PostDetailModal: React.FC<PostDetailModalProps> = ({
@@ -73,6 +82,12 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
   const [commentCount, setCommentCount] = useState(articleData.comment_counts);
   const [commentsPreloaded, setCommentsPreloaded] = useState(false);
   const [lastFetchedCommentIds, setLastFetchedCommentIds] = useState<Set<string>>(new Set());
+  
+  // New state for image gallery
+  const [postImages, setPostImages] = useState<PostImage[]>([]);
+  const [isLoadingImages, setIsLoadingImages] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
 
   useEffect(() => {
     if (articleData) {
@@ -92,12 +107,80 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     }
   }, [visible, commentsPreloaded]);
 
+  // Load post images when modal becomes visible
+  useEffect(() => {
+    if (visible && !imagesLoaded) {
+      loadPostImages();
+    }
+  }, [visible, imagesLoaded]);
+
+  const loadPostImages = async () => {
+    if (isLoadingImages) return;
+    
+    setIsLoadingImages(true);
+    try {
+      const initialImages: PostImage[] = articleData.post_thumbnail 
+        ? [{ id: 'thumbnail', image_url: articleData.post_thumbnail }] 
+        : [];
+      
+      setPostImages(initialImages);
+      
+      const response = await api.get(`post/${articleData.id}/images`);
+      const additionalImages = response.data.result || [];
+      
+      if (additionalImages.length > 0) {
+        setPostImages([...additionalImages]);
+      } else {
+        setPostImages([...initialImages])
+      }
+      
+      setImagesLoaded(true);
+    } catch (error) {
+      console.error('Error loading post images:', error);
+      // Keep the thumbnail as fallback
+      if (articleData.post_thumbnail) {
+        setPostImages([{ id: 'thumbnail', image_url: articleData.post_thumbnail }]);
+      }
+    } finally {
+      setIsLoadingImages(false);
+    }
+  };
+
+  const navigateToNextImage = () => {
+    if (postImages.length <= 1) return;
+    
+    setCurrentImageIndex(prevIndex => {
+      if (prevIndex === postImages.length - 1) {
+        return 0; 
+      } else {
+        return prevIndex + 1;
+      }
+    });
+  };
+
+  const navigateToPrevImage = () => {
+    if (postImages.length <= 1) return;
+    
+    setCurrentImageIndex(prevIndex => {
+      if (prevIndex === 0) {
+        return postImages.length - 1;
+      } else {
+        return prevIndex - 1;
+      }
+    });
+  };
+
+  const filterValidComments = (commentsToFilter: Comment[]): Comment[] => {
+    return commentsToFilter.filter(comment => comment.comment.state !== -1);
+  };
+
   const preloadComments = async () => {
     try {
       const result = await commentApiService.fetchComments(articleData.id, 1, 10);
-      setComments(result.comments);
+      const validComments = filterValidComments(result.comments);
+      setComments(validComments);
       
-      const commentIds = new Set(result.comments.map(comment => comment.comment.id));
+      const commentIds = new Set(validComments.map(comment => comment.comment.id));
       setLastFetchedCommentIds(commentIds);
       
       setHasMoreComments(result.hasMore);
@@ -109,6 +192,11 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     }
   };
 
+  const handleCultureContentPress = () => {
+    onClose();
+    navigate('Document', {id: articleData.location_id})
+  }
+
   const loadMoreComments = async () => {
     if (!hasMoreComments || isLoadingMore) return;
     
@@ -117,8 +205,9 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     try {
       const nextPage = currentPage + 1;
       const result = await commentApiService.fetchComments(articleData.id, nextPage, 10);
-      console.log('Loaded more comments:', result);
-      const newComments = result.comments.filter(
+      
+      const filteredComments = filterValidComments(result.comments);
+      const newComments = filteredComments.filter(
         newComment => !lastFetchedCommentIds.has(newComment.comment.id)
       );
       
@@ -147,6 +236,9 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     
     try {
       const result = await commentApiService.fetchComments(articleData.id, 1, 11);
+      
+      const filteredComments = filterValidComments(result.comments);
+      
       const existingCommentsMap = new Map();
       comments.forEach(comment => {
         existingCommentsMap.set(comment.comment.id, comment);
@@ -155,16 +247,16 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
       const newComments: Comment[] = [];
       const updatedCommentIds: Set<string> = new Set();
       
-      result.comments.forEach(comment => {
+      filteredComments.forEach(comment => {
         updatedCommentIds.add(comment.comment.id);
         
         if (!existingCommentsMap.has(comment.comment.id)) {
           newComments.push(comment);
         }
       });
+      
       if (newComments.length > 0) {
         setComments(prev => [...newComments, ...prev]);
-        
         setCommentCount(prevCount => prevCount + newComments.length);
       }
       
@@ -186,8 +278,11 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
       setIsLoadingComments(true);
       commentApiService.fetchComments(articleData.id, 1, 10)
         .then(result => {
-          setComments(result.comments);
-          const commentIds = new Set(result.comments.map(comment => comment.comment.id));
+          // Filter out comments with state -1
+          const validComments = filterValidComments(result.comments);
+          setComments(validComments);
+          
+          const commentIds = new Set(validComments.map(comment => comment.comment.id));
           setLastFetchedCommentIds(commentIds);
           
           setCurrentPage(1);
@@ -221,7 +316,8 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
         comment: {
           id: tempId,
           content: commentText,
-          created_at: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          state: 0
         },
         user: {
           id: getUserId(),
@@ -234,12 +330,20 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
       setCommentCount(newCommentCount);
       setComments(prev => [optimisticComment, ...prev]);
       setCommentText('');
-      const response = await commentApiService.postComment(articleData.id, commentText);
-      setLastFetchedCommentIds(prev => new Set([...prev, response.comment.id]));
       
-      setComments(prev => prev.map(comment => 
-        comment.comment.id === tempId ? response : comment
-      ));
+      const response = await commentApiService.postComment(articleData.id, commentText);
+      
+      // Only update comment list if the new comment's state is not -1
+      if (response.comment.state !== -1) {
+        setLastFetchedCommentIds(prev => new Set([...prev, response.comment.id]));
+        setComments(prev => prev.map(comment => 
+          comment.comment.id === tempId ? response : comment
+        ));
+      } else {
+        // Remove the optimistic comment if its state is -1
+        setComments(prev => prev.filter(comment => comment.comment.id !== tempId));
+        setCommentCount(prevCount => prevCount - 1);
+      }
       
       onComment();
     } catch (error) {
@@ -296,25 +400,32 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     }
   };
 
-  const renderCommentItem = useCallback(({ item }: { item: Comment }) => (
-    <View style={styles.commentItem}>
-      <Image
-        source={
-          item.user.avatar_url ? { uri: item.user.avatar_url } : require('../assets/default-avatar.png')
-        }
-        style={styles.commentAvatar}
-      />
-      <View style={styles.commentContent}>
-        <Text style={styles.commentUsername}>{item.user.name}</Text>
-        <Text style={styles.commentText}>{item.comment.content}</Text>
-        <View style={styles.commentFooter}>
+  const renderCommentItem = useCallback(({ item }: { item: Comment }) => {
+    // Skip rendering if comment state is -1
+    if (item.comment.state === -1) {
+      return null;
+    }
+    
+    return (
+      <View style={styles.commentItem}>
+        <Image
+          source={
+            item.user.avatar_url ? { uri: item.user.avatar_url } : require('../assets/default-avatar.png')
+          }
+          style={styles.commentAvatar}
+        />
+        <View style={styles.commentContent}>
+          <Text style={styles.commentUsername}>{item.user.name}</Text>
+          <Text style={styles.commentText}>{item.comment.content}</Text>
+          <View style={styles.commentFooter}>
           <Text style={styles.commentTime}>
-            {new Date(item.comment.created_at).toLocaleString()}
+            {isNaN(new Date(item.comment.createdAt).getTime()) ? 'Invalid Date' : new Date(item.comment.createdAt).toLocaleString()}
           </Text>
+          </View>
         </View>
       </View>
-    </View>
-  ), []);
+    );
+  }, []);
 
   const renderFooter = () => {
     if (!hasMoreComments || currentPage >= totalPages) return null;
@@ -347,6 +458,52 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>Chưa có bình luận nào</Text>
         <Text style={styles.emptySubText}>Hãy là người đầu tiên bình luận!</Text>
+      </View>
+    );
+  };
+
+  const renderImageGallery = () => {
+    const currentImage = postImages[currentImageIndex]?.image_url;
+    
+    return (
+      <View style={styles.imageGalleryContainer}>
+        <Image 
+          source={
+            currentImage
+              ? { uri: currentImage }
+              : require("../assets/default-avatar.png")
+          }
+          style={styles.mainImagePlaceholder}
+          resizeMode="cover"
+        />
+        
+        {postImages.length > 1 && (
+          <>
+            <TouchableOpacity 
+              style={[styles.imageNavButton, styles.leftNavButton]} 
+              onPress={navigateToPrevImage}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.imageNavButton, styles.rightNavButton]} 
+              onPress={navigateToNextImage}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-forward" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </>
+        )}
+        
+        {postImages.length > 1 && (
+          <View style={styles.imageCounter}>
+            <Text style={styles.imageCounterText}>
+              {currentImageIndex + 1}/{postImages.length}
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -407,19 +564,16 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
               <Text style={styles.timeAgo}>{(new Date(articleData.created_at)).toLocaleDateString()}</Text>
             </View>
             
-            <Image 
-              source={articleData.post_thumbnail
-                ? { uri: articleData.post_thumbnail }
-                : require("../assets/default-avatar.png")}
-              style={styles.mainImagePlaceholder}
-            />
+            {renderImageGallery()}
             
-            <View style={styles.historicSiteInfo}>
-              <Text style={styles.historicSiteText}>Xem tài liệu về di tích</Text>
-              <TouchableOpacity style={styles.historicSiteButton}>
-                <Text style={styles.historicSiteButtonText}>Tại đây</Text>
-              </TouchableOpacity>
-            </View>
+            {articleData.location_id && (
+              <View style={styles.historicSiteInfo}>
+                <Text style={styles.historicSiteText}>Xem tài liệu về di tích</Text>
+                <TouchableOpacity style={styles.historicSiteButton} onPress={handleCultureContentPress}>
+                  <Text style={styles.historicSiteButtonText}>Tại đây</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             
             <View style={styles.engagementContainer}>
               <View style={styles.likes}>
@@ -617,10 +771,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
   },
+  imageGalleryContainer: {
+    position: 'relative',
+    width: width,
+    height: 250,
+  },
   mainImagePlaceholder: {
     width: width,
     height: 250,
     backgroundColor: '#F0F0F0',
+  },
+  imageNavButton: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  leftNavButton: {
+    left: 16,
+  },
+  rightNavButton: {
+    right: 16,
+  },
+  imageCounter: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  imageCounterText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
   },
   historicSiteInfo: {
     flexDirection: 'row',

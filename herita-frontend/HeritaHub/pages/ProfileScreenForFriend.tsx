@@ -19,7 +19,6 @@ import { StackScreenProps } from "@react-navigation/stack";
 import { getUserId } from "../services/TokenService";
 import { ProfileStackParamList } from "../Stack/ProfileStack";
 import PostComponent from "../components/Post";
-
 type Props = StackScreenProps<ProfileStackParamList, "FriendProfile">;
 
 const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -29,7 +28,6 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
     type: "",
     visibile: false,
   });
-
   const [userData, setUserData] = useState({
     number_of_posts: 0,
     following: 0,
@@ -50,6 +48,7 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
       like_counts: 0,
       comment_counts: 0,
       isLike: false,
+      locationId: "",
     },
   ]);
 
@@ -61,75 +60,82 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
       following: userData.following,
       username: userData.username,
       avatar_url: userData.avatar_url,
-      isFollowing: userData.isFollowing
-    })
+      isFollowing: userData.isFollowing,
+    });
   };
-
+  const handleMessage = (
+    userId: string,
+    friendName: string,
+    friendId: string
+  ) => {
+    navigation.navigate("Conversation", {
+      chatId: friendId,
+      chatType: "private",
+      chatName: friendName,
+      userId: userId,
+    });
+  };
   useFocusEffect(
     useCallback(() => {
       fetchUserData();
     }, [])
   );
-  
+
   const goBack = (reload: boolean) => {
     if (reload) {
       fetchUserData();
     } else {
-      navigation.goBack()
+      navigation.goBack();
     }
-  }
+  };
 
   const followFriend = async () => {
     try {
       setLoading(true);
-        const response = await api.post(`/user/following?friend_id=${userId}`)
-        setUserData((prevData) => ({
-          ...prevData,
-          isFollowing: true,
-          follower: prevData.follower + 1, 
-        }));
+      const response = await api.post(`/user/following?friend_id=${userId}`);
+      setUserData((prevData) => ({
+        ...prevData,
+        isFollowing: true,
+        follower: prevData.follower + 1,
+      }));
     } catch (error) {
       console.log(error);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const unfollowFriend = async () => {
-    Alert.alert( 
-        "Theo dõi",
-        "Bạn có chắc chắn muốn thực hiện hành động này?",
-        [
-            {
-                text: "Không",
-                style: "cancel",
-            },
-            {
-            text: "Có",
-                onPress: async () => {
-                  try {
-                    setLoading(true);
-                      const res = await api.delete(`/user/following?friend_id=${userId}`)
-                      setUserData((prevData) => ({
-                        ...prevData,
-                        isFollowing: false,
-                        follower: prevData.follower - 1, 
-                      }));
-                  } catch (error) {
-                    console.log(error);
-                  } finally {
-                    setLoading(false);
-                  }
-                },
-            },
-        ]
-    );
-  }
+    Alert.alert("Theo dõi", "Bạn có chắc chắn muốn thực hiện hành động này?", [
+      {
+        text: "Không",
+        style: "cancel",
+      },
+      {
+        text: "Có",
+        onPress: async () => {
+          try {
+            setLoading(true);
+            const res = await api.delete(`/user/following?friend_id=${userId}`);
+            setUserData((prevData) => ({
+              ...prevData,
+              isFollowing: false,
+              follower: prevData.follower - 1,
+            }));
+          } catch (error) {
+            console.log(error);
+          } finally {
+            setLoading(false);
+          }
+        },
+      },
+    ]);
+  };
 
   useEffect(() => {
-    setModalOption({type: "", visibile: false})
-    fetchUserData()
-  }, [userId])
+    setModalOption({ type: "", visibile: false });
+    fetchUserData();
+  }, [userId]);
 
   const fetchUserPosts = async () => {
     try {
@@ -147,7 +153,7 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       setLoading(true);
         const response = await api.get(`/user/general-profile?userId=${userId}`);
-        setUserData(response.data.result);  
+        setUserData(response.data.result);
         if (userId === getUserId()) {
           userData.isFollowing = true
         }
@@ -174,6 +180,7 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
       like_counts: number;
       comment_counts: number;
       isLike: boolean;
+      locationId: string;
     };
   }) => (
     <PostComponent
@@ -189,13 +196,13 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
       like_counts={item.like_counts}
       comment_counts={item.comment_counts}
       isLike={item.isLike}
+      location_id={item.locationId}
       onPostDeleted={handlePostDelete}
     />
   );
 
   const handleUserListChanged = (reloadPage: boolean) => {
-    if (reloadPage)
-      fetchUserData();
+    if (reloadPage) fetchUserData();
   };
 
   return (
@@ -204,7 +211,9 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
 
       <FlatList
         data={userPosts}
-        renderItem={(userData.isFollowing || userId === getUserId() )? renderItem : null}
+        renderItem={
+          userData.isFollowing || userId === getUserId() ? renderItem : null
+        }
         keyExtractor={(item) => item.id}
         style={styles.list}
         showsVerticalScrollIndicator={false}
@@ -230,14 +239,16 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
 
               <View style={styles.statsContainer}>
                 <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>{userData.number_of_posts}</Text>
+                  <Text style={styles.statNumber}>
+                    {userData.number_of_posts}
+                  </Text>
                   <Text style={styles.statLabel}>Đã đăng</Text>
                 </View>
 
                 <TouchableOpacity
                   onPress={() => {
                     if (userData.isFollowing || userId === getUserId())
-                      setModalOption({ type: "followed", visibile: true })
+                      setModalOption({ type: "followed", visibile: true });
                   }}
                 >
                   <View style={styles.statItem}>
@@ -249,7 +260,7 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
                 <TouchableOpacity
                   onPress={() => {
                     if (userData.isFollowing || userId === getUserId())
-                      setModalOption({ type: "following", visibile: true })
+                      setModalOption({ type: "following", visibile: true });
                   }}
                 >
                   <View style={styles.statItem}>
@@ -266,20 +277,16 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
                       onPress={() => unfollowFriend()}
                       style={[styles.followButton, styles.messageButton]}
                     >
-                      <Text style={styles.followButtonText}>
-                        Bỏ theo dõi
-                      </Text>
+                      <Text style={styles.followButtonText}>Bỏ theo dõi</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      // onPress={() => {
-                      //   navigation.navigate("ChatScreen"); 
-                      // }}
+                      onPress={() => {
+                        handleMessage(getUserId(), userData.username, userId);
+                      }}
                       style={[styles.followButton, styles.unfollowButton]}
                     >
-                      <Text style={styles.unfollowButtonText}>
-                        Nhắn tin
-                      </Text>
+                      <Text style={styles.unfollowButtonText}>Nhắn tin</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -288,13 +295,15 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
                       if (userId === getUserId())
                         navigation.navigate("ProfileDetail");
                       else {
-                        followFriend()
+                        followFriend();
                       }
                     }}
                     style={styles.followButton}
                   >
                     <Text style={styles.followButtonText}>
-                      {userId === getUserId() ? "Chỉnh sửa thông tin người dùng" : "Theo dõi"}
+                      {userId === getUserId()
+                        ? "Chỉnh sửa thông tin người dùng"
+                        : "Theo dõi"}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -373,37 +382,37 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginTop: 10,
-    width: '100%',
+    width: "100%",
   },
   twoButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
   },
   followButton: {
-    backgroundColor: '#FF6F20',
+    backgroundColor: "#FF6F20",
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   messageButton: {
     flex: 1,
     marginRight: 8,
   },
   unfollowButton: {
-    backgroundColor: '#FFE6D8',
+    backgroundColor: "#FFE6D8",
     flex: 1,
     marginLeft: 8,
   },
   followButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
   },
   unfollowButtonText: {
-    color: '#FF6F20',
-    fontWeight: 'bold',
+    color: "#FF6F20",
+    fontWeight: "bold",
   },
   postsSection: {
     marginTop: 10,
