@@ -46,6 +46,7 @@ interface Comment {
     id: string;
     content: string;
     created_at: string;
+    state: number;
   }
   user: {
     id: string;
@@ -169,12 +170,19 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     });
   };
 
+  // Filter out comments with state -1 before setting them
+  const filterValidComments = (commentsToFilter: Comment[]): Comment[] => {
+    return commentsToFilter.filter(comment => comment.comment.state !== -1);
+  };
+
   const preloadComments = async () => {
     try {
       const result = await commentApiService.fetchComments(articleData.id, 1, 10);
-      setComments(result.comments);
+      // Filter out comments with state -1
+      const validComments = filterValidComments(result.comments);
+      setComments(validComments);
       
-      const commentIds = new Set(result.comments.map(comment => comment.comment.id));
+      const commentIds = new Set(validComments.map(comment => comment.comment.id));
       setLastFetchedCommentIds(commentIds);
       
       setHasMoreComments(result.hasMore);
@@ -199,7 +207,10 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     try {
       const nextPage = currentPage + 1;
       const result = await commentApiService.fetchComments(articleData.id, nextPage, 10);
-      const newComments = result.comments.filter(
+      
+      // Filter out comments with state -1 and comments already fetched
+      const filteredComments = filterValidComments(result.comments);
+      const newComments = filteredComments.filter(
         newComment => !lastFetchedCommentIds.has(newComment.comment.id)
       );
       
@@ -228,6 +239,10 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     
     try {
       const result = await commentApiService.fetchComments(articleData.id, 1, 11);
+      
+      // Filter out comments with state -1
+      const filteredComments = filterValidComments(result.comments);
+      
       const existingCommentsMap = new Map();
       comments.forEach(comment => {
         existingCommentsMap.set(comment.comment.id, comment);
@@ -236,16 +251,16 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
       const newComments: Comment[] = [];
       const updatedCommentIds: Set<string> = new Set();
       
-      result.comments.forEach(comment => {
+      filteredComments.forEach(comment => {
         updatedCommentIds.add(comment.comment.id);
         
         if (!existingCommentsMap.has(comment.comment.id)) {
           newComments.push(comment);
         }
       });
+      
       if (newComments.length > 0) {
         setComments(prev => [...newComments, ...prev]);
-        
         setCommentCount(prevCount => prevCount + newComments.length);
       }
       
@@ -267,8 +282,11 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
       setIsLoadingComments(true);
       commentApiService.fetchComments(articleData.id, 1, 10)
         .then(result => {
-          setComments(result.comments);
-          const commentIds = new Set(result.comments.map(comment => comment.comment.id));
+          // Filter out comments with state -1
+          const validComments = filterValidComments(result.comments);
+          setComments(validComments);
+          
+          const commentIds = new Set(validComments.map(comment => comment.comment.id));
           setLastFetchedCommentIds(commentIds);
           
           setCurrentPage(1);
@@ -302,7 +320,8 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
         comment: {
           id: tempId,
           content: commentText,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          state: 0
         },
         user: {
           id: getUserId(),
@@ -315,12 +334,20 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
       setCommentCount(newCommentCount);
       setComments(prev => [optimisticComment, ...prev]);
       setCommentText('');
-      const response = await commentApiService.postComment(articleData.id, commentText);
-      setLastFetchedCommentIds(prev => new Set([...prev, response.comment.id]));
       
-      setComments(prev => prev.map(comment => 
-        comment.comment.id === tempId ? response : comment
-      ));
+      const response = await commentApiService.postComment(articleData.id, commentText);
+      
+      // Only update comment list if the new comment's state is not -1
+      if (response.comment.state !== -1) {
+        setLastFetchedCommentIds(prev => new Set([...prev, response.comment.id]));
+        setComments(prev => prev.map(comment => 
+          comment.comment.id === tempId ? response : comment
+        ));
+      } else {
+        // Remove the optimistic comment if its state is -1
+        setComments(prev => prev.filter(comment => comment.comment.id !== tempId));
+        setCommentCount(prevCount => prevCount - 1);
+      }
       
       onComment();
     } catch (error) {
@@ -377,25 +404,32 @@ const PostDetailModal: React.FC<PostDetailModalProps> = ({
     }
   };
 
-  const renderCommentItem = useCallback(({ item }: { item: Comment }) => (
-    <View style={styles.commentItem}>
-      <Image
-        source={
-          item.user.avatar_url ? { uri: item.user.avatar_url } : require('../assets/default-avatar.png')
-        }
-        style={styles.commentAvatar}
-      />
-      <View style={styles.commentContent}>
-        <Text style={styles.commentUsername}>{item.user.name}</Text>
-        <Text style={styles.commentText}>{item.comment.content}</Text>
-        <View style={styles.commentFooter}>
-          <Text style={styles.commentTime}>
-            {new Date(item.comment.created_at).toLocaleString()}
-          </Text>
+  const renderCommentItem = useCallback(({ item }: { item: Comment }) => {
+    // Skip rendering if comment state is -1
+    if (item.comment.state === -1) {
+      return null;
+    }
+    
+    return (
+      <View style={styles.commentItem}>
+        <Image
+          source={
+            item.user.avatar_url ? { uri: item.user.avatar_url } : require('../assets/default-avatar.png')
+          }
+          style={styles.commentAvatar}
+        />
+        <View style={styles.commentContent}>
+          <Text style={styles.commentUsername}>{item.user.name}</Text>
+          <Text style={styles.commentText}>{item.comment.content}</Text>
+          <View style={styles.commentFooter}>
+            <Text style={styles.commentTime}>
+              {new Date(item.comment.created_at).toLocaleString()}
+            </Text>
+          </View>
         </View>
       </View>
-    </View>
-  ), []);
+    );
+  }, []);
 
   const renderFooter = () => {
     if (!hasMoreComments || currentPage >= totalPages) return null;

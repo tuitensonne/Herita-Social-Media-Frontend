@@ -72,7 +72,6 @@ const GeneralProfileScreen: React.FC<Props> = ({ navigation }) => {
     try {
       setLoading(true);
       const response = await api.get(`/post/${getUserId()}/posts`);
-      console.log(response.data.result.PostLocation)
       setUserPosts(response.data.result);
     } catch (error) {
       console.log(error);

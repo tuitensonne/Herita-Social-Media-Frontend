@@ -148,7 +148,7 @@ const FriendProfileScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       setLoading(true);
         const response = await api.get(`/user/general-profile?userId=${userId}`);
-        setUserData(response.data.result);  
+        setUserData(response.data.result);
         if (userId === getUserId()) {
           userData.isFollowing = true
         }
